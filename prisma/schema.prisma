@@ -1,0 +1,164 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// نموذج المستخدم مع الأدوار والأسئلة الأمنية
+model User {
+  id                    String   @id @default(cuid())
+  email                 String   @unique
+  username              String   @unique
+  password              String
+  name                  String
+  role                  UserRole @default(ACCOUNTANT)
+  isActive              Boolean  @default(true)
+  lastLogin             DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // العلاقات
+  securityQuestions     SecurityQuestion[]
+  incomes               Income[]
+  entities              Entity[]
+  ledgerEntries         LedgerEntry[]
+  userActivityLogs      UserActivityLog[]
+
+  @@map("users")
+}
+
+// أسئلة الأمان للمستخدم
+model SecurityQuestion {
+  id        String   @id @default(cuid())
+  userId    String
+  question  String
+  answer    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("security_questions")
+}
+
+// الجهات (رئيسية، تابعة، عاملين)
+model Entity {
+  id          String      @id @default(cuid())
+  name        String
+  type        EntityType
+  description String?
+  phone       String?
+  email       String?
+  address     String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // العلاقات
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  incomes     Income[]
+  ledgerEntries LedgerEntry[]
+
+  @@map("entities")
+}
+
+// إدارة الإيرادات
+model Income {
+  id          String      @id @default(cuid())
+  amount      Float
+  description String
+  date        DateTime
+  category    IncomeCategory
+  reference   String?
+  notes       String?
+  isArchived  Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // العلاقات
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  entityId    String?
+  entity      Entity?     @relation(fields: [entityId], references: [id])
+  ledgerEntries LedgerEntry[]
+
+  @@map("incomes")
+}
+
+// دفتر الاستاذ
+model LedgerEntry {
+  id          String      @id @default(cuid())
+  amount      Float
+  description String
+  date        DateTime
+  type        LedgerType
+  reference   String?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // العلاقات
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  incomeId    String?
+  income      Income?     @relation(fields: [incomeId], references: [id])
+  entityId    String?
+  entity      Entity?     @relation(fields: [entityId], references: [id])
+
+  @@map("ledger_entries")
+}
+
+// سجل نشاط المستخدم
+model UserActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String
+  description String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_activity_logs")
+}
+
+// أنواع المستخدمين
+enum UserRole {
+  SYSTEM_ADMIN
+  MANAGER
+  ACCOUNTANT
+  AUDITOR
+}
+
+// أنواع الجهات
+enum EntityType {
+  MAIN
+  SUBSIDIARY
+  WORKER
+}
+
+// فئات الإيرادات
+enum IncomeCategory {
+  SALARY
+  RENT
+  INVESTMENT
+  SERVICE
+  OTHER
+}
+
+// أنواع قيود دفتر الاستاذ
+enum LedgerType {
+  DEBIT
+  CREDIT
+}

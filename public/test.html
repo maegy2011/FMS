@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Arabic Fonts</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', 'Tajawal', sans-serif;
+            background-color: #fefcf8;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+        }
+        .test-card {
+            background: white;
+            border: 2px solid #1e4b3d;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .islamic-pattern {
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(30, 75, 61, 0.1) 0%, transparent 50%);
+            background-size: 20px 20px;
+        }
+        h1 {
+            color: #1e4b3d;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        h2 {
+            color: #d4af37;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        p {
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        .button {
+            background-color: #1e4b3d;
+            color: #fefcf8;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #2d5f4f;
+        }
+    </style>
+</head>
+<body class="islamic-pattern">
+    <h1>نظام الإدارة المالية | FMS</h1>
+    <h2>اختبار الخطوط العربية والألوان الإسلامية</h2>
+    
+    <div class="test-card">
+        <h3>مرحباً بك في نظام الإدارة المالية</h3>
+        <p>هذا نظام متكامل لإدارة الشؤون المالية مع تصميم إسلامي أندلسي حديث. النظام يدعم اللغة العربية بالكامل مع RTL.</p>
+        <p>الألوان المستخدمة:</p>
+        <ul>
+            <li style="color: #1e4b3d;">الأخضر الإسلامي (#1e4b3d)</li>
+            <li style="color: #d4af37;">الذهبي (#d4af37)</li>
+            <li style="color: #8b4513;">البني (#8b4513)</li>
+        </ul>
+        <button class="button">زر تجريبي</button>
+    </div>
+    
+    <div class="test-card">
+        <h3>اختبار التصميم المتجاوب</h3>
+        <p>هذا النظام متوافق تماماً مع الموبايل وسطح المكتب. يتميز بواجهة مستخدم سلسة واحترافية.</p>
+    </div>
+    
+    <p>إذا كنت ترى هذا النص بشكل صحيح باللغة العربية وبالخطوط المناسبة، فإن التصميم يعمل بشكل جيد!</p>
+</body>
+</html>
