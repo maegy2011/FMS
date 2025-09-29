@@ -3,6 +3,7 @@ import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
+import LoadingProvider from "@/components/providers/loading-provider";
 
 // Arabic font for better RTL support
 const cairo = Cairo({
@@ -46,9 +47,11 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <div className="min-h-screen">
-            {children}
-          </div>
+          <LoadingProvider>
+            <div className="min-h-screen">
+              {children}
+            </div>
+          </LoadingProvider>
           <Toaster />
         </ThemeProvider>
       </body>

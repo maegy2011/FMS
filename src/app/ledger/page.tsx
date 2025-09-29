@@ -146,7 +146,7 @@ export default function LedgerPage() {
           description: newEntry.description,
           debit: newEntry.debit ? parseFloat(newEntry.debit) : 0,
           credit: newEntry.credit ? parseFloat(newEntry.credit) : 0,
-          entityId: newEntry.entityId || undefined
+          entityId: newEntry.entityId && newEntry.entityId !== 'none' ? newEntry.entityId : undefined
         })
       })
 
@@ -332,7 +332,7 @@ export default function LedgerPage() {
                         <SelectValue placeholder="اختر الجهة" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">لا يوجد</SelectItem>
+                        <SelectItem value="none">لا يوجد</SelectItem>
                         {entities.map((entity) => (
                           <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
                         ))}

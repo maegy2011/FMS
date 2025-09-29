@@ -11,10 +11,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Get token from Authorization header
-  const authHeader = request.headers.get('authorization')
-  const token = authHeader?.replace('Bearer ', '')
-
   // Protected routes that require authentication
   const protectedRoutes = [
     '/dashboard',
@@ -30,29 +26,38 @@ export async function middleware(request: NextRequest) {
   )
 
   if (isProtectedRoute) {
-    // If no token, redirect to login
-    if (!token) {
-      return NextResponse.redirect(new URL('/', request.url))
+    // For API routes, check Authorization header
+    if (request.nextUrl.pathname.startsWith('/api/')) {
+      const authHeader = request.headers.get('authorization')
+      const token = authHeader?.replace('Bearer ', '')
+
+      if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      // Verify token
+      const payload = verifyToken(token)
+      
+      if (!payload) {
+        return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+      }
+
+      // Add user info to headers
+      const requestHeaders = new Headers(request.headers)
+      requestHeaders.set('x-user-id', payload.userId)
+      requestHeaders.set('x-user-role', payload.role)
+      requestHeaders.set('x-user-username', payload.username)
+
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      })
+    } else {
+      // For page routes, the client-side will handle authentication
+      // Let the request pass through and let the client-side handle the redirect
+      return NextResponse.next()
     }
-
-    // Verify token
-    const payload = verifyToken(token)
-    
-    if (!payload) {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
-
-    // Add user info to headers
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('x-user-id', payload.userId)
-    requestHeaders.set('x-user-role', payload.role)
-    requestHeaders.set('x-user-username', payload.username)
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    })
   }
 
   return NextResponse.next()
@@ -60,12 +65,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
     '/api/protected/:path*',
-    '/incomes/:path*',
-    '/entities/:path*',
-    '/reports/:path*',
-    '/ledger/:path*',
     '/api/:path*'
   ],
 }

@@ -143,7 +143,7 @@ export default function EntitiesPage() {
           phone: newEntity.phone || undefined,
           email: newEntity.email || undefined,
           description: newEntity.description || undefined,
-          parentId: newEntity.parentId || undefined
+          parentId: newEntity.parentId && newEntity.parentId !== 'none' ? newEntity.parentId : undefined
         })
       })
 
@@ -419,7 +419,7 @@ export default function EntitiesPage() {
                         <SelectValue placeholder="اختر الجهة الرئيسية" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">لا يوجد</SelectItem>
+                        <SelectItem value="none">لا يوجد</SelectItem>
                         {entities.filter(e => e.type === 'MAIN').map((entity) => (
                           <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
                         ))}
