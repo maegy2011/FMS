@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { Navigation } from "@/components/navigation";
+import { Header } from "@/components/header";
+import { AppNavigation } from "@/components/app-navigation";
 import { LoadingOverlay } from "@/components/loading-overlay";
+import { Footer } from "@/components/footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,9 +18,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "نظام إدارة الجهات والإيرادات",
+  title: "نظام الإدارة المالية | FMS",
   description: "نظام متكامل لإدارة الجهات والإيرادات المالية",
-  keywords: ["إدارة الجهات", "الإيرادات", "نظام مالي", "Next.js", "TypeScript"],
+  keywords: ["نظام إدارة مالية", "الإيرادات", "الجهات", "FMS", "Next.js", "TypeScript"],
 };
 
 export default function RootLayout({
@@ -29,11 +31,15 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen flex flex-col`}
       >
-        <Navigation />
+        <Header />
+        <AppNavigation />
         <LoadingOverlay />
-        {children}
+        <main className="flex-1">
+          {children}
+        </main>
+        <Footer />
         <Toaster />
       </body>
     </html>

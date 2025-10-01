@@ -1099,6 +1099,62 @@ export default function EntitiesManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">إجمالي الجهات</p>
+                    <p className="text-2xl font-bold">{entities.length}</p>
+                  </div>
+                  <Building2 className="h-8 w-8 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">الجهات النشطة</p>
+                    <p className="text-2xl font-bold">
+                      {entities.filter(e => !e.isArchived).length}
+                    </p>
+                  </div>
+                  <Scale className="h-8 w-8 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">الجهات المؤرشفة</p>
+                    <p className="text-2xl font-bold">
+                      {entities.filter(e => e.isArchived).length}
+                    </p>
+                  </div>
+                  <Archive className="h-8 w-8 text-orange-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {activeTab === 'active' ? 'الجهات الرئيسية النشطة' : 'الجهات الرئيسية المؤرشفة'}
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {entities.filter(e => e.type === 'main' && (activeTab === 'active' ? !e.isArchived : e.isArchived)).length}
+                    </p>
+                  </div>
+                  <Home className="h-8 w-8 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Unified Search and Filter Bar */}
           <div className="space-y-4 mb-6">
             {/* Quick Search */}
@@ -2242,62 +2298,6 @@ export default function EntitiesManagement() {
               )}
             </TabsContent>
           </Tabs>
-
-          {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">إجمالي الجهات</p>
-                    <p className="text-2xl font-bold">{entities.length}</p>
-                  </div>
-                  <Building2 className="h-8 w-8 text-blue-500" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">الجهات النشطة</p>
-                    <p className="text-2xl font-bold">
-                      {entities.filter(e => !e.isArchived).length}
-                    </p>
-                  </div>
-                  <Scale className="h-8 w-8 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">الجهات المؤرشفة</p>
-                    <p className="text-2xl font-bold">
-                      {entities.filter(e => e.isArchived).length}
-                    </p>
-                  </div>
-                  <Archive className="h-8 w-8 text-orange-500" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {activeTab === 'active' ? 'الجهات الرئيسية النشطة' : 'الجهات الرئيسية المؤرشفة'}
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {entities.filter(e => e.type === 'main' && (activeTab === 'active' ? !e.isArchived : e.isArchived)).length}
-                    </p>
-                  </div>
-                  <Home className="h-8 w-8 text-purple-500" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </CardContent>
       </Card>
 
