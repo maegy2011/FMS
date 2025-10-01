@@ -27,4 +27,22 @@ model Entity {
   archivedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  revenues    Revenue[]
+}
+
+model Revenue {
+  id          Int      @id @default(autoincrement())
+  serial      Int      @unique
+  entityId    Int?
+  entityName  String
+  value       Float
+  dueDate     DateTime
+  period      String   // e.g., "2024-01", "Q1-2024", "2024"
+  type        String   // 'subscriptions', 'penalties', 'legal_fees', 'computerization', 'other'
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  entity      Entity?  @relation(fields: [entityId], references: [id])
 }

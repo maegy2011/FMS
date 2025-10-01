@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Captcha } from '@/components/ui/captcha'
-import { Trash2, Edit, Plus, Search, Building2, Users, Home, Scale, FileText, Gavel, Archive, ArchiveRestore, Eye, EyeOff, Download, Upload, Filter, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal } from 'lucide-react'
+import { Trash2, Edit, Plus, Search, Building2, Users, Home, Scale, FileText, Gavel, Archive, ArchiveRestore, Eye, EyeOff, Download, Upload, Filter, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, DollarSign, Calendar } from 'lucide-react'
 
 interface Entity {
   id: number
@@ -28,6 +28,8 @@ interface Entity {
   phone?: string
   email?: string
   website?: string
+  totalRevenue?: number
+  revenuesCount?: number
 }
 
 const entityTypes = [
@@ -76,6 +78,7 @@ export default function EntitiesManagement() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [viewingEntity, setViewingEntity] = useState<Entity | null>(null)
   const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false)
+  
   const [filters, setFilters] = useState({
     type: 'all',
     governorate: 'all',
@@ -83,8 +86,14 @@ export default function EntitiesManagement() {
     hasPhone: false,
     hasEmail: false,
     hasWebsite: false,
+    minTotalRevenue: '',
+    maxTotalRevenue: '',
+    minRevenuesCount: '',
+    maxRevenuesCount: '',
     createdAfter: '',
     createdBefore: '',
+    revenueStartDate: '',
+    revenueEndDate: '',
     sortBy: 'createdAt',
     sortOrder: 'desc'
   })
@@ -98,7 +107,17 @@ export default function EntitiesManagement() {
   // Fetch entities
   const fetchEntities = async () => {
     try {
-      const response = await fetch('/api/entities')
+      let url = '/api/entities'
+      
+      // Add date range parameters if active
+      if (filters.revenueStartDate || filters.revenueEndDate) {
+        const params = new URLSearchParams()
+        if (filters.revenueStartDate) params.append('startDate', filters.revenueStartDate)
+        if (filters.revenueEndDate) params.append('endDate', filters.revenueEndDate)
+        url += `?${params.toString()}`
+      }
+      
+      const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
         setEntities(data)
@@ -126,7 +145,9 @@ export default function EntitiesManagement() {
 
   useEffect(() => {
     fetchEntities()
-  }, [])
+  }, [filters.revenueStartDate, filters.revenueEndDate])
+
+  
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -451,18 +472,42 @@ export default function EntitiesManagement() {
     const matchesCreatedBefore = !filters.createdBefore || 
       new Date(entity.createdAt) <= new Date(filters.createdBefore)
     
+    const matchesMinTotalRevenue = !filters.minTotalRevenue || 
+      (entity.totalRevenue || 0) >= parseFloat(filters.minTotalRevenue)
+    const matchesMaxTotalRevenue = !filters.maxTotalRevenue || 
+      (entity.totalRevenue || 0) <= parseFloat(filters.maxTotalRevenue)
+    const matchesMinRevenuesCount = !filters.minRevenuesCount || 
+      (entity.revenuesCount || 0) >= parseInt(filters.minRevenuesCount)
+    const matchesMaxRevenuesCount = !filters.maxRevenuesCount || 
+      (entity.revenuesCount || 0) <= parseInt(filters.maxRevenuesCount)
+    
     return matchesTab && matchesSearch && matchesType && matchesGovernorate &&
            matchesDescription && matchesPhone && matchesEmail && matchesWebsite &&
-           matchesCreatedAfter && matchesCreatedBefore
+           matchesCreatedAfter && matchesCreatedBefore &&
+           matchesMinTotalRevenue && matchesMaxTotalRevenue &&
+           matchesMinRevenuesCount && matchesMaxRevenuesCount
   })
 
   // Sort entities
   const sortedEntities = [...filteredAndSearchedEntities].sort((a, b) => {
-    let aValue: any = a[filters.sortBy as keyof Entity]
-    let bValue: any = b[filters.sortBy as keyof Entity]
+    let aValue: any
+    let bValue: any
     
-    if (aValue instanceof Date) aValue = aValue.getTime()
-    if (bValue instanceof Date) bValue = bValue.getTime()
+    switch (filters.sortBy) {
+      case 'totalRevenue':
+        aValue = a.totalRevenue || 0
+        bValue = b.totalRevenue || 0
+        break
+      case 'revenuesCount':
+        aValue = a.revenuesCount || 0
+        bValue = b.revenuesCount || 0
+        break
+      default:
+        aValue = a[filters.sortBy as keyof Entity]
+        bValue = b[filters.sortBy as keyof Entity]
+        if (aValue instanceof Date) aValue = aValue.getTime()
+        if (bValue instanceof Date) bValue = bValue.getTime()
+    }
     
     if (filters.sortOrder === 'asc') {
       return aValue > bValue ? 1 : -1
@@ -1086,7 +1131,10 @@ export default function EntitiesManagement() {
                   الفلاتر المتقدمة
                   {(filters.type !== 'all' || filters.governorate !== 'all' || 
                     filters.hasDescription || filters.hasPhone || filters.hasEmail || 
-                    filters.hasWebsite || filters.createdAfter || filters.createdBefore) && (
+                    filters.hasWebsite || filters.createdAfter || filters.createdBefore ||
+                    filters.minTotalRevenue || filters.maxTotalRevenue ||
+                    filters.minRevenuesCount || filters.maxRevenuesCount ||
+                    filters.revenueStartDate || filters.revenueEndDate) && (
                     <Badge variant="secondary" className="mr-1">نشط</Badge>
                   )}
                 </Button>
@@ -1101,6 +1149,8 @@ export default function EntitiesManagement() {
                     <SelectItem value="name">الاسم</SelectItem>
                     <SelectItem value="type">النوع</SelectItem>
                     <SelectItem value="governorate">المحافظة</SelectItem>
+                    <SelectItem value="totalRevenue">إجمالي الإيرادات</SelectItem>
+                    <SelectItem value="revenuesCount">عدد الإيرادات</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -1367,6 +1417,76 @@ export default function EntitiesManagement() {
                       />
                     </div>
 
+                    <div>
+                      <Label className="text-sm font-medium">إجمالي الإيرادات من (ج.م)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={filters.minTotalRevenue}
+                        onChange={(e) => setFilters({...filters, minTotalRevenue: e.target.value})}
+                        className="mt-1"
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">إجمالي الإيرادات إلى (ج.م)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={filters.maxTotalRevenue}
+                        onChange={(e) => setFilters({...filters, maxTotalRevenue: e.target.value})}
+                        className="mt-1"
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">عدد الإيرادات من</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={filters.minRevenuesCount}
+                        onChange={(e) => setFilters({...filters, minRevenuesCount: e.target.value})}
+                        className="mt-1"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">عدد الإيرادات إلى</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={filters.maxRevenuesCount}
+                        onChange={(e) => setFilters({...filters, maxRevenuesCount: e.target.value})}
+                        className="mt-1"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">فترة الإيرادات من</Label>
+                      <Input
+                        type="date"
+                        value={filters.revenueStartDate}
+                        onChange={(e) => setFilters({...filters, revenueStartDate: e.target.value})}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">فترة الإيرادات إلى</Label>
+                      <Input
+                        type="date"
+                        value={filters.revenueEndDate}
+                        onChange={(e) => setFilters({...filters, revenueEndDate: e.target.value})}
+                        className="mt-1"
+                      />
+                    </div>
+
                     <div className="flex items-end">
                       <Button
                         variant="outline"
@@ -1378,8 +1498,14 @@ export default function EntitiesManagement() {
                           hasPhone: false,
                           hasEmail: false,
                           hasWebsite: false,
+                          minTotalRevenue: '',
+                          maxTotalRevenue: '',
+                          minRevenuesCount: '',
+                          maxRevenuesCount: '',
                           createdAfter: '',
                           createdBefore: '',
+                          revenueStartDate: '',
+                          revenueEndDate: '',
                           sortBy: 'createdAt',
                           sortOrder: 'desc'
                         })}
@@ -1534,6 +1660,13 @@ export default function EntitiesManagement() {
                         <TableHead className="text-right">اسم الجهة</TableHead>
                         <TableHead className="text-right">النوع</TableHead>
                         <TableHead className="text-right">المحافظة</TableHead>
+                        <TableHead className="text-right">
+                          <div className="flex items-center gap-1 justify-end">
+                            إجمالي الإيرادات
+                            {(filters.revenueStartDate || filters.revenueEndDate) && <Calendar className="h-3 w-3 text-blue-500" />}
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-right">عدد الإيرادات</TableHead>
                         <TableHead className="text-right">تاريخ الإنشاء</TableHead>
                         <TableHead className="text-right">الإجراءات</TableHead>
                       </TableRow>
@@ -1541,7 +1674,7 @@ export default function EntitiesManagement() {
                     <TableBody>
                       {paginatedEntities.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8">
+                          <TableCell colSpan={9} className="text-center py-8">
                             {searchQuery.length >= 3 ? 'لا توجد نتائج مطابقة للبحث' : 'لا توجد جهات نشطة'}
                           </TableCell>
                         </TableRow>
@@ -1571,6 +1704,28 @@ export default function EntitiesManagement() {
                                 </Badge>
                               </TableCell>
                               <TableCell>{entity.governorate}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <DollarSign className={`h-3 w-3 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`} />
+                                  <span className={`font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`}>
+                                    {entity.totalRevenue ? entity.totalRevenue.toFixed(2) : '0.00'} ج.م
+                                  </span>
+                                  {(filters.revenueStartDate || filters.revenueEndDate) && (
+                                    <Calendar className="h-2 w-2 text-blue-500" />
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center justify-center">
+                                  {entity.revenuesCount && entity.revenuesCount > 0 ? (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {entity.revenuesCount}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-gray-400 text-sm">0</span>
+                                  )}
+                                </div>
+                              </TableCell>
                               <TableCell>
                                 {new Date(entity.createdAt).toLocaleDateString('ar-EG')}
                               </TableCell>
@@ -1652,6 +1807,38 @@ export default function EntitiesManagement() {
                                     </div>
                                     <div className="text-gray-500">
                                       {new Date(entity.createdAt).toLocaleDateString('ar-EG')}
+                                    </div>
+                                    
+                                    {/* Revenue Information */}
+                                    <div className={`border rounded-lg p-2 mt-2 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'}`}>
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1">
+                                          <DollarSign className={`h-3 w-3 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`} />
+                                          <span className={`text-xs font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-800' : 'text-green-800'}`}>
+                                            إجمالي الإيرادات{(filters.revenueStartDate || filters.revenueEndDate) ? ' (للفترة):' : ':'}
+                                          </span>
+                                          <span className={`text-xs font-bold ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-700' : 'text-green-700'}`}>
+                                            {entity.totalRevenue ? entity.totalRevenue.toFixed(2) : '0.00'} ج.م
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className={`text-xs font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-800' : 'text-green-800'}`}>العدد:</span>
+                                          {entity.revenuesCount && entity.revenuesCount > 0 ? (
+                                            <Badge variant="secondary" className={`text-xs ${(filters.revenueStartDate || filters.revenueEndDate) ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                                              {entity.revenuesCount}
+                                            </Badge>
+                                          ) : (
+                                            <span className={`text-xs ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`}>0</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {(filters.revenueStartDate || filters.revenueEndDate) && (
+                                        <div className="mt-1 text-xs text-blue-600">
+                                          <Calendar className="h-2 w-2 inline ml-1" />
+                                          {filters.revenueStartDate && `من ${new Date(filters.revenueStartDate).toLocaleDateString('ar-EG')}`}
+                                          {filters.revenueEndDate && ` إلى ${new Date(filters.revenueEndDate).toLocaleDateString('ar-EG')}`}
+                                        </div>
+                                      )}
                                     </div>
                                     {(entity.description || entity.phone || entity.email) && (
                                       <div className="text-xs text-gray-400 mt-2">
@@ -1798,6 +1985,13 @@ export default function EntitiesManagement() {
                         <TableHead className="text-right">اسم الجهة</TableHead>
                         <TableHead className="text-right">النوع</TableHead>
                         <TableHead className="text-right">المحافظة</TableHead>
+                        <TableHead className="text-right">
+                          <div className="flex items-center gap-1 justify-end">
+                            إجمالي الإيرادات
+                            {(filters.revenueStartDate || filters.revenueEndDate) && <Calendar className="h-3 w-3 text-blue-500" />}
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-right">عدد الإيرادات</TableHead>
                         <TableHead className="text-right">تاريخ الأرشفة</TableHead>
                         <TableHead className="text-right">الإجراءات</TableHead>
                       </TableRow>
@@ -1805,7 +1999,7 @@ export default function EntitiesManagement() {
                     <TableBody>
                       {paginatedEntities.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8">
+                          <TableCell colSpan={9} className="text-center py-8">
                             {searchQuery.length >= 3 ? 'لا توجد نتائج مطابقة للبحث' : 'لا توجد جهات مؤرشفة'}
                           </TableCell>
                         </TableRow>
@@ -1835,6 +2029,28 @@ export default function EntitiesManagement() {
                                 </Badge>
                               </TableCell>
                               <TableCell>{entity.governorate}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <DollarSign className={`h-3 w-3 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`} />
+                                  <span className={`font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`}>
+                                    {entity.totalRevenue ? entity.totalRevenue.toFixed(2) : '0.00'} ج.م
+                                  </span>
+                                  {(filters.revenueStartDate || filters.revenueEndDate) && (
+                                    <Calendar className="h-2 w-2 text-blue-500" />
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center justify-center">
+                                  {entity.revenuesCount && entity.revenuesCount > 0 ? (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {entity.revenuesCount}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-gray-400 text-sm">0</span>
+                                  )}
+                                </div>
+                              </TableCell>
                               <TableCell>
                                 {entity.archivedAt 
                                   ? new Date(entity.archivedAt).toLocaleDateString('ar-EG')
@@ -1914,6 +2130,38 @@ export default function EntitiesManagement() {
                                         ? new Date(entity.archivedAt).toLocaleDateString('ar-EG')
                                         : new Date(entity.createdAt).toLocaleDateString('ar-EG')
                                       }
+                                    </div>
+                                    
+                                    {/* Revenue Information */}
+                                    <div className={`border rounded-lg p-2 mt-2 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'}`}>
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1">
+                                          <DollarSign className={`h-3 w-3 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`} />
+                                          <span className={`text-xs font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-800' : 'text-green-800'}`}>
+                                            إجمالي الإيرادات{(filters.revenueStartDate || filters.revenueEndDate) ? ' (للفترة):' : ':'}
+                                          </span>
+                                          <span className={`text-xs font-bold ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-700' : 'text-green-700'}`}>
+                                            {entity.totalRevenue ? entity.totalRevenue.toFixed(2) : '0.00'} ج.م
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className={`text-xs font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-800' : 'text-green-800'}`}>العدد:</span>
+                                          {entity.revenuesCount && entity.revenuesCount > 0 ? (
+                                            <Badge variant="secondary" className={`text-xs ${(filters.revenueStartDate || filters.revenueEndDate) ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                                              {entity.revenuesCount}
+                                            </Badge>
+                                          ) : (
+                                            <span className={`text-xs ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`}>0</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {(filters.revenueStartDate || filters.revenueEndDate) && (
+                                        <div className="mt-1 text-xs text-blue-600">
+                                          <Calendar className="h-2 w-2 inline ml-1" />
+                                          {filters.revenueStartDate && `من ${new Date(filters.revenueStartDate).toLocaleDateString('ar-EG')}`}
+                                          {filters.revenueEndDate && ` إلى ${new Date(filters.revenueEndDate).toLocaleDateString('ar-EG')}`}
+                                        </div>
+                                      )}
                                     </div>
                                     {(entity.description || entity.phone || entity.email) && (
                                       <div className="text-xs text-gray-400 mt-2">
@@ -2213,6 +2461,31 @@ export default function EntitiesManagement() {
                       {viewingEntity.isArchived ? 'مؤرشفة' : 'نشطة'}
                     </Badge>
                   </div>
+                </div>
+              </div>
+              
+              {/* Total Revenue Section */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-green-800">إجمالي الإيرادات</Label>
+                    <p className="text-2xl font-bold text-green-700 mt-1">
+                      {viewingEntity.totalRevenue ? viewingEntity.totalRevenue.toFixed(2) : '0.00'} ج.م
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <Label className="text-sm font-medium text-green-800">عدد الإيرادات</Label>
+                    <div className="mt-1">
+                      {viewingEntity.revenuesCount && viewingEntity.revenuesCount > 0 ? (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800">
+                          {viewingEntity.revenuesCount}
+                        </Badge>
+                      ) : (
+                        <span className="text-green-600 font-medium">0</span>
+                      )}
+                    </div>
+                  </div>
+                  <DollarSign className="h-8 w-8 text-green-600" />
                 </div>
               </div>
               {viewingEntity.description && (
