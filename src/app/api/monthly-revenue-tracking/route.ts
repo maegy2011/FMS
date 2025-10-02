@@ -1,6 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+// Calculate late payments based on last 3 paid revenues for each entity
+async function calculateLatePayments(entities: any[], allRevenues: any[]): Promise<number> {
+  let totalLateAmount = 0
+  
+  for (const entity of entities) {
+    // Get paid revenues for this entity, sorted by payment date (most recent first)
+    const entityPaidRevenues = allRevenues
+      .filter(rev => rev.entityId === entity.id && rev.paymentDate)
+      .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
+      .slice(0, 3) // Take last 3 paid revenues
+    
+    // Calculate average of last 3 paid revenues
+    if (entityPaidRevenues.length > 0) {
+      const averageAmount = entityPaidRevenues.reduce((sum, rev) => sum + rev.value, 0) / entityPaidRevenues.length
+      
+      // Get unpaid revenues (late payments)
+      const unpaidRevenues = allRevenues.filter(rev => 
+        rev.entityId === entity.id && 
+        !rev.paymentDate && 
+        new Date(rev.dueDate) < new Date()
+      )
+      
+      // Calculate late amount based on average
+      totalLateAmount += unpaidRevenues.length * averageAmount
+    }
+  }
+  
+  return totalLateAmount
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -43,12 +73,12 @@ export async function GET(request: NextRequest) {
     // Add status filter if provided
     if (status && status !== 'all') {
       if (status === 'paid') {
-        whereClause.notes = { contains: 'تم السداد' }
+        whereClause.paymentDate = { not: null }
       } else if (status === 'late') {
-        whereClause.notes = { not: { contains: 'تم السداد' } }
+        whereClause.paymentDate = null
         whereClause.dueDate = { lt: new Date() }
       } else if (status === 'pending') {
-        whereClause.notes = { not: { contains: 'تم السداد' } }
+        whereClause.paymentDate = null
         whereClause.dueDate = { gte: new Date() }
       }
     }
@@ -60,6 +90,13 @@ export async function GET(request: NextRequest) {
         in: entityIdArray
       }
     }
+
+    // Fetch all revenues for late payment calculation
+    const allRevenues = await db.revenue.findMany({
+      include: {
+        entity: true
+      }
+    })
 
     // Fetch tracking data
     const revenues = await db.revenue.findMany({
@@ -80,8 +117,8 @@ export async function GET(request: NextRequest) {
       
       let status: 'paid' | 'late' | 'pending' = 'pending'
       
-      // Determine status based on notes first, then due date
-      if (revenue.notes && (revenue.notes.includes('تم السداد') || revenue.notes.includes('تم السداد مسبقاً'))) {
+      // Determine status based on payment date first, then due date
+      if (revenue.paymentDate) {
         status = 'paid'
       } else if (currentDate > dueDate) {
         status = 'late'
@@ -97,12 +134,12 @@ export async function GET(request: NextRequest) {
         period: revenue.period,
         daysOverdue: status === 'late' ? daysOverdue : 0,
         status,
-        paymentDate: status === 'paid' ? revenue.dueDate.toISOString().split('T')[0] : null,
+        paymentDate: revenue.paymentDate ? revenue.paymentDate.toISOString().split('T')[0] : null,
         notes: revenue.notes
       }
     })
 
-    // Fetch entities for filtering
+    // Fetch entities for filtering and late payment calculation
     const entities = await db.entity.findMany({
       where: {
         isArchived: false,
@@ -120,17 +157,21 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Calculate late payments based on last 3 paid revenues
+    const latePaymentsAmount = await calculateLatePayments(entities, allRevenues)
+
     // Calculate monthly summary based on filtered data
     const monthlySummary = calculateMonthlySummaryFromTrackingData(trackingData, year)
     
     // Calculate overall statistics from filtered data
-    const overallStats = calculateOverallStatsFromTrackingData(trackingData)
+    const overallStats = calculateOverallStatsFromTrackingData(trackingData, latePaymentsAmount)
 
     return NextResponse.json({
       trackingData,
       monthlySummary,
       overallStats,
-      entities
+      entities,
+      latePaymentsAmount
     })
   } catch (error) {
     console.error('Error fetching monthly revenue tracking:', error)
@@ -141,7 +182,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function calculateOverallStatsFromTrackingData(trackingData: any[]) {
+function calculateOverallStatsFromTrackingData(trackingData: any[], latePaymentsAmount: number) {
   let totalEntities = 0
   let paidEntities = 0
   let lateEntities = 0
@@ -169,6 +210,9 @@ function calculateOverallStatsFromTrackingData(trackingData: any[]) {
       pendingRevenue += item.revenueValue
     }
   })
+
+  // Use calculated late payments amount instead of simple late revenue
+  lateRevenue = latePaymentsAmount
 
   const collectionRate = totalRevenue > 0 ? ((paidRevenue / totalRevenue) * 100).toFixed(1) : '0'
 

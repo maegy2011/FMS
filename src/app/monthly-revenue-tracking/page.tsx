@@ -97,6 +97,8 @@ export default function MonthlyRevenueTrackingPage() {
   const [sortBy, setSortBy] = useState('entityName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [activeTab, setActiveTab] = useState('table')
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 5
 
   // Fetch data from API
   const fetchData = async () => {
@@ -140,6 +142,7 @@ export default function MonthlyRevenueTrackingPage() {
   }
 
   useEffect(() => {
+    setCurrentPage(1) // Reset to first page when filters change
     fetchData()
   }, [selectedYear, selectedMonth, selectedGovernorate, selectedStatus, selectedEntities.length])
 
@@ -179,6 +182,13 @@ export default function MonthlyRevenueTrackingPage() {
         return aValue < bValue ? 1 : -1
       }
     })
+
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredAndSortedData.length / itemsPerPage)
+  const paginatedData = filteredAndSortedData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
 
   const handleEntitySelection = (entityId: number, checked: boolean) => {
     if (checked) {
@@ -545,7 +555,7 @@ export default function MonthlyRevenueTrackingPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAndSortedData.map((item) => (
+                    {paginatedData.map((item) => (
                       <TableRow key={item.id} className={item.status === 'late' ? 'bg-red-50' : item.status === 'pending' ? 'bg-orange-50' : ''}>
                         <TableCell className="font-medium">{item.entityName}</TableCell>
                         <TableCell>{item.entityGovernorate}</TableCell>
@@ -559,6 +569,33 @@ export default function MonthlyRevenueTrackingPage() {
                   </TableBody>
                 </Table>
               </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center mt-4">
+                  <div className="text-sm text-gray-600">
+                    عرض {((currentPage - 1) * itemsPerPage + 1)} إلى {Math.min(currentPage * itemsPerPage, filteredAndSortedData.length)} من {filteredAndSortedData.length} نتيجة
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      السابق
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      التالي
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

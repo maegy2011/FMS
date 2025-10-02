@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Captcha } from '@/components/ui/captcha'
-import { Trash2, Edit, Plus, Search, Building2, Users, Home, Scale, FileText, Gavel, Archive, ArchiveRestore, Eye, EyeOff, Download, Upload, Filter, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, DollarSign, Calendar } from 'lucide-react'
+import { Trash2, Edit, Plus, Search, Building2, Users, Home, Scale, FileText, Gavel, Archive, ArchiveRestore, Eye, EyeOff, Download, Upload, Filter, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, Calendar } from 'lucide-react'
+import { formatCurrency, convertToArabicNumerals } from '@/lib/utils'
 
 interface Entity {
   id: number
@@ -30,6 +31,7 @@ interface Entity {
   website?: string
   totalRevenue?: number
   revenuesCount?: number
+  subtype?: string
 }
 
 const entityTypes = [
@@ -61,6 +63,7 @@ export default function EntitiesManagement() {
   const [activeTab, setActiveTab] = useState<string>('active')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [editingEntity, setEditingEntity] = useState<Entity | null>(null)
   const [captchaValid, setCaptchaValid] = useState(false)
   const [captchaReset, setCaptchaReset] = useState(false)
@@ -153,7 +156,7 @@ export default function EntitiesManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.name || !formData.type || !formData.governorate) {
+    if (!formData.name || !formData.type || !formData.governorate || (formData.type === 'main' && !formData.subtype)) {
       Swal.fire({
         icon: 'warning',
         title: 'تنبيه',
@@ -163,6 +166,16 @@ export default function EntitiesManagement() {
       })
       return
     }
+
+    // Show loading state
+    Swal.fire({
+      title: 'جاري الحفظ...',
+      text: 'يرجى الانتظار',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading()
+      }
+    })
 
     try {
       const url = editingEntity ? `/api/entities/${editingEntity.id}` : '/api/entities'
@@ -280,6 +293,16 @@ export default function EntitiesManagement() {
 
     if (!confirmDelete) return
 
+    // Show loading state
+    Swal.fire({
+      title: 'جاري الحذف...',
+      text: 'يرجى الانتظار',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading()
+      }
+    })
+
     try {
       const response = await fetch(`/api/entities/${id}`, {
         method: 'DELETE',
@@ -326,7 +349,7 @@ export default function EntitiesManagement() {
     setFormData({
       name: entity.name,
       type: entity.type,
-      subtype: '',
+      subtype: entity.subtype || '',
       governorate: entity.governorate,
       description: entity.description || '',
       address: entity.address || '',
@@ -404,6 +427,16 @@ export default function EntitiesManagement() {
 
     if (!confirmArchive) return
 
+    // Show loading state
+    Swal.fire({
+      title: archive ? 'جاري الأرشفة...' : 'جاري إعادة التفعيل...',
+      text: 'يرجى الانتظار',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading()
+      }
+    })
+
     try {
       const response = await fetch(`/api/entities/${id}/archive`, {
         method: 'PUT',
@@ -456,44 +489,46 @@ export default function EntitiesManagement() {
       (entity.phone && entity.phone.includes(searchQuery)) ||
       (entity.email && entity.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (entity.website && entity.website.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      entity.id.toString().includes(searchQuery)
+      (entity.totalRevenue && entity.totalRevenue.toString().includes(searchQuery))
       : true
     
+    const matchesType = filterType === 'all' || entity.type === filterType
+    const matchesGovernorate = filterGovernorate === 'all' || entity.governorate === filterGovernorate
+    
     // Advanced filters
-    const matchesType = filters.type === 'all' || entity.type === filters.type
-    const matchesGovernorate = filters.governorate === 'all' || entity.governorate === filters.governorate
-    const matchesDescription = !filters.hasDescription || entity.description
-    const matchesPhone = !filters.hasPhone || entity.phone
-    const matchesEmail = !filters.hasEmail || entity.email
-    const matchesWebsite = !filters.hasWebsite || entity.website
+    const matchesDescription = !filters.hasDescription || !!entity.description
+    const matchesPhone = !filters.hasPhone || !!entity.phone
+    const matchesEmail = !filters.hasEmail || !!entity.email
+    const matchesWebsite = !filters.hasWebsite || !!entity.website
     
-    const matchesCreatedAfter = !filters.createdAfter || 
-      new Date(entity.createdAt) >= new Date(filters.createdAfter)
-    const matchesCreatedBefore = !filters.createdBefore || 
-      new Date(entity.createdAt) <= new Date(filters.createdBefore)
+    const matchesMinRevenue = !filters.minTotalRevenue || (entity.totalRevenue || 0) >= parseFloat(filters.minTotalRevenue)
+    const matchesMaxRevenue = !filters.maxTotalRevenue || (entity.totalRevenue || 0) <= parseFloat(filters.maxTotalRevenue)
     
-    const matchesMinTotalRevenue = !filters.minTotalRevenue || 
-      (entity.totalRevenue || 0) >= parseFloat(filters.minTotalRevenue)
-    const matchesMaxTotalRevenue = !filters.maxTotalRevenue || 
-      (entity.totalRevenue || 0) <= parseFloat(filters.maxTotalRevenue)
-    const matchesMinRevenuesCount = !filters.minRevenuesCount || 
-      (entity.revenuesCount || 0) >= parseInt(filters.minRevenuesCount)
-    const matchesMaxRevenuesCount = !filters.maxRevenuesCount || 
-      (entity.revenuesCount || 0) <= parseInt(filters.maxRevenuesCount)
+    const matchesMinCount = !filters.minRevenuesCount || (entity.revenuesCount || 0) >= parseInt(filters.minRevenuesCount)
+    const matchesMaxCount = !filters.maxRevenuesCount || (entity.revenuesCount || 0) <= parseInt(filters.maxRevenuesCount)
+    
+    const matchesCreatedAfter = !filters.createdAfter || new Date(entity.createdAt) >= new Date(filters.createdAfter)
+    const matchesCreatedBefore = !filters.createdBefore || new Date(entity.createdAt) <= new Date(filters.createdBefore)
     
     return matchesTab && matchesSearch && matchesType && matchesGovernorate &&
            matchesDescription && matchesPhone && matchesEmail && matchesWebsite &&
-           matchesCreatedAfter && matchesCreatedBefore &&
-           matchesMinTotalRevenue && matchesMaxTotalRevenue &&
-           matchesMinRevenuesCount && matchesMaxRevenuesCount
+           matchesMinRevenue && matchesMaxRevenue && matchesMinCount && matchesMaxCount &&
+           matchesCreatedAfter && matchesCreatedBefore
   })
 
   // Sort entities
   const sortedEntities = [...filteredAndSearchedEntities].sort((a, b) => {
-    let aValue: any
-    let bValue: any
+    let aValue: any, bValue: any
     
     switch (filters.sortBy) {
+      case 'name':
+        aValue = a.name
+        bValue = b.name
+        break
+      case 'governorate':
+        aValue = a.governorate
+        bValue = b.governorate
+        break
       case 'totalRevenue':
         aValue = a.totalRevenue || 0
         bValue = b.totalRevenue || 0
@@ -502,17 +537,17 @@ export default function EntitiesManagement() {
         aValue = a.revenuesCount || 0
         bValue = b.revenuesCount || 0
         break
+      case 'createdAt':
       default:
-        aValue = a[filters.sortBy as keyof Entity]
-        bValue = b[filters.sortBy as keyof Entity]
-        if (aValue instanceof Date) aValue = aValue.getTime()
-        if (bValue instanceof Date) bValue = bValue.getTime()
+        aValue = new Date(a.createdAt)
+        bValue = new Date(b.createdAt)
+        break
     }
     
     if (filters.sortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
     } else {
-      return aValue < bValue ? 1 : -1
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
     }
   })
 
@@ -523,384 +558,20 @@ export default function EntitiesManagement() {
     currentPage * itemsPerPage
   )
 
-  // Selection handlers
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedEntities(paginatedEntities.map(e => e.id))
-    } else {
-      setSelectedEntities([])
-    }
-  }
-
-  const handleSelectEntity = (id: number, checked: boolean) => {
-    if (checked) {
-      setSelectedEntities([...selectedEntities, id])
-    } else {
-      setSelectedEntities(selectedEntities.filter(selectedId => selectedId !== id))
-    }
-  }
-
-  const isAllSelected = paginatedEntities.length > 0 && 
-    paginatedEntities.every(e => selectedEntities.includes(e.id))
-  const isIndeterminate = selectedEntities.length > 0 && 
-    selectedEntities.length < paginatedEntities.length
-
-  // Bulk actions
-  const handleBulkArchive = async (archive: boolean) => {
-    if (selectedEntities.length === 0) return
-    
-    setCaptchaReset(false)
-    setCaptchaValid(false)
-    
-    const { value: confirmAction } = await Swal.fire({
-      title: archive ? 'تأكيد أرشفة المحدد' : 'تأكيد إعادة تفعيل المحدد',
-      html: `
-        <div class="text-right">
-          <p>${archive ? `هل أنت متأكد من أرشفة ${selectedEntities.length} جهة؟` : `هل أنت متأكد من إعادة تفعيل ${selectedEntities.length} جهة؟`}</p>
-          <div id="captcha-container" class="mt-4"></div>
-        </div>
-      `,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: archive ? 'نعم، أرشف' : 'نعم، فعل',
-      cancelButtonText: 'إلغاء',
-      confirmButtonColor: archive ? '#f59e0b' : '#16a34a',
-      cancelButtonColor: '#6b7280',
-      reverseButtons: true,
-      didOpen: () => {
-        const container = document.getElementById('captcha-container')
-        if (container) {
-          let captchaText = ''
-          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-          for (let i = 0; i < 6; i++) {
-            captchaText += chars.charAt(Math.floor(Math.random() * chars.length))
-          }
-          
-          container.innerHTML = `
-            <div class="space-y-3">
-              <label class="text-sm font-medium">التحقق من الإنسان (CAPTCHA)</label>
-              <div class="flex items-center gap-2">
-                <div class="bg-gray-100 border-2 border-gray-300 rounded px-3 py-2 font-mono text-sm font-bold text-gray-700" style="letter-spacing: 2px;">
-                  ${captchaText}
-                </div>
-                <button type="button" onclick="location.reload()" class="p-1 border rounded">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                </button>
-              </div>
-              <input type="text" id="captcha-input" placeholder="أدخل النص الموضح" class="w-full px-3 py-2 border rounded" maxlength="6">
-            </div>
-          `
-          
-          window.captchaAnswer = captchaText
-        }
-      },
-      preConfirm: () => {
-        const captchaInput = document.getElementById('captcha-input') as HTMLInputElement
-        if (!captchaInput || captchaInput.value !== window.captchaAnswer) {
-          Swal.showValidationMessage('التحقق من الإنسان غير صحيح')
-          return false
-        }
-        return true
-      }
-    })
-
-    if (!confirmAction) return
-
+  // Handle export
+  const handleExport = async () => {
     try {
-      const promises = selectedEntities.map(id => 
-        fetch(`/api/entities/${id}/archive`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ archive })
-        })
-      )
-      
-      await Promise.all(promises)
-      
+      // Show loading state
       Swal.fire({
-        icon: 'success',
-        title: 'نجاح',
-        text: archive ? 'تم أرشفة الجهات المحددة بنجاح' : 'تم إعادة تفعيل الجهات المحددة بنجاح',
-        confirmButtonText: 'موافق',
-        confirmButtonColor: '#16a34a'
-      })
-      
-      fetchEntities()
-      setSelectedEntities([])
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'خطأ',
-        text: 'حدث خطأ في الاتصال',
-        confirmButtonText: 'موافق',
-        confirmButtonColor: '#dc2626'
-      })
-    }
-  }
-
-  const handleBulkDelete = async () => {
-    if (selectedEntities.length === 0) return
-    
-    setCaptchaReset(false)
-    setCaptchaValid(false)
-    
-    const { value: confirmDelete } = await Swal.fire({
-      title: 'تأكيد الحذف',
-      html: `
-        <div class="text-right">
-          <p>هل أنت متأكد من حذف ${selectedEntities.length} جهة؟ لا يمكن التراجع عن هذا الإجراء!</p>
-          <div id="captcha-container" class="mt-4"></div>
-        </div>
-      `,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'نعم، احذف',
-      cancelButtonText: 'إلغاء',
-      confirmButtonColor: '#dc2626',
-      cancelButtonColor: '#6b7280',
-      reverseButtons: true,
-      didOpen: () => {
-        const container = document.getElementById('captcha-container')
-        if (container) {
-          let captchaText = ''
-          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-          for (let i = 0; i < 6; i++) {
-            captchaText += chars.charAt(Math.floor(Math.random() * chars.length))
-          }
-          
-          container.innerHTML = `
-            <div class="space-y-3">
-              <label class="text-sm font-medium">التحقق من الإنسان (CAPTCHA)</label>
-              <div class="flex items-center gap-2">
-                <div class="bg-gray-100 border-2 border-gray-300 rounded px-3 py-2 font-mono text-sm font-bold text-gray-700" style="letter-spacing: 2px;">
-                  ${captchaText}
-                </div>
-                <button type="button" onclick="location.reload()" class="p-1 border rounded">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                </button>
-              </div>
-              <input type="text" id="captcha-input" placeholder="أدخل النص الموضح" class="w-full px-3 py-2 border rounded" maxlength="6">
-            </div>
-          `
-          
-          window.captchaAnswer = captchaText
+        title: 'جاري التصدير...',
+        text: 'يرجى الانتظار',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading()
         }
-      },
-      preConfirm: () => {
-        const captchaInput = document.getElementById('captcha-input') as HTMLInputElement
-        if (!captchaInput || captchaInput.value !== window.captchaAnswer) {
-          Swal.showValidationMessage('التحقق من الإنسان غير صحيح')
-          return false
-        }
-        return true
-      }
-    })
-
-    if (!confirmDelete) return
-
-    try {
-      const promises = selectedEntities.map(id => 
-        fetch(`/api/entities/${id}`, { method: 'DELETE' })
-      )
-      
-      await Promise.all(promises)
-      
-      Swal.fire({
-        icon: 'success',
-        title: 'نجاح',
-        text: 'تم حذف الجهات المحددة بنجاح',
-        confirmButtonText: 'موافق',
-        confirmButtonColor: '#16a34a'
-      })
-      
-      fetchEntities()
-      setSelectedEntities([])
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'خطأ',
-        text: 'حدث خطأ في الاتصال',
-        confirmButtonText: 'موافق',
-        confirmButtonColor: '#dc2626'
-      })
-    }
-  }
-
-  const handleBulkExport = async () => {
-    if (selectedEntities.length === 0) return
-    
-    setCaptchaReset(false)
-    setCaptchaValid(false)
-    
-    const { value: confirmExport } = await Swal.fire({
-      title: 'تصدير المحدد إلى CSV',
-      html: `
-        <div class="text-right">
-          <p>هل أنت متأكد من تصدير ${selectedEntities.length} جهة محددة؟</p>
-          <div id="captcha-container" class="mt-4"></div>
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'نعم، صدر',
-      cancelButtonText: 'إلغاء',
-      confirmButtonColor: '#16a34a',
-      cancelButtonColor: '#6b7280',
-      reverseButtons: true,
-      didOpen: () => {
-        const container = document.getElementById('captcha-container')
-        if (container) {
-          let captchaText = ''
-          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-          for (let i = 0; i < 6; i++) {
-            captchaText += chars.charAt(Math.floor(Math.random() * chars.length))
-          }
-          
-          container.innerHTML = `
-            <div class="space-y-3">
-              <label class="text-sm font-medium">التحقق من الإنسان (CAPTCHA)</label>
-              <div class="flex items-center gap-2">
-                <div class="bg-gray-100 border-2 border-gray-300 rounded px-3 py-2 font-mono text-sm font-bold text-gray-700" style="letter-spacing: 2px;">
-                  ${captchaText}
-                </div>
-                <button type="button" onclick="location.reload()" class="p-1 border rounded">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                </button>
-              </div>
-              <input type="text" id="captcha-input" placeholder="أدخل النص الموضح" class="w-full px-3 py-2 border rounded" maxlength="6">
-            </div>
-          `
-          
-          window.captchaAnswer = captchaText
-        }
-      },
-      preConfirm: () => {
-        const captchaInput = document.getElementById('captcha-input') as HTMLInputElement
-        if (!captchaInput || captchaInput.value !== window.captchaAnswer) {
-          Swal.showValidationMessage('التحقق من الإنسان غير صحيح')
-          return false
-        }
-        return true
-      }
-    })
-
-    if (!confirmExport) return
-
-    try {
-      const response = await fetch('/api/entities/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entityIds: selectedEntities })
       })
 
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `selected_entities_${new Date().toISOString().split('T')[0]}.csv`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-
-        Swal.fire({
-          icon: 'success',
-          title: 'نجاح',
-          text: 'تم تصدير الجهات المحددة بنجاح',
-          confirmButtonText: 'موافق',
-          confirmButtonColor: '#16a34a'
-        })
-      }
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'خطأ',
-        text: 'حدث خطأ في الاتصال',
-        confirmButtonText: 'موافق',
-        confirmButtonColor: '#dc2626'
-      })
-    }
-  }
-
-  // Handle export to CSV
-  const handleExportCSV = async () => {
-    setCaptchaReset(false)
-    setCaptchaValid(false)
-    
-    const { value: confirmExport } = await Swal.fire({
-      title: 'تصدير البيانات إلى CSV',
-      html: `
-        <div class="text-right">
-          <p>هل أنت متأكد من تصدير البيانات المفلترة؟ سيتم تصدير ${sortedEntities.length} جهة.</p>
-          <div id="captcha-container" class="mt-4"></div>
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'نعم، صدر',
-      cancelButtonText: 'إلغاء',
-      confirmButtonColor: '#16a34a',
-      cancelButtonColor: '#6b7280',
-      reverseButtons: true,
-      didOpen: () => {
-        const container = document.getElementById('captcha-container')
-        if (container) {
-          let captchaText = ''
-          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-          for (let i = 0; i < 6; i++) {
-            captchaText += chars.charAt(Math.floor(Math.random() * chars.length))
-          }
-          
-          container.innerHTML = `
-            <div class="space-y-3">
-              <label class="text-sm font-medium">التحقق من الإنسان (CAPTCHA)</label>
-              <div class="flex items-center gap-2">
-                <div class="bg-gray-100 border-2 border-gray-300 rounded px-3 py-2 font-mono text-sm font-bold text-gray-700" style="letter-spacing: 2px;">
-                  ${captchaText}
-                </div>
-                <button type="button" onclick="location.reload()" class="p-1 border rounded">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                </button>
-              </div>
-              <input type="text" id="captcha-input" placeholder="أدخل النص الموضح" class="w-full px-3 py-2 border rounded" maxlength="6">
-            </div>
-          `
-          
-          window.captchaAnswer = captchaText
-        }
-      },
-      preConfirm: () => {
-        const captchaInput = document.getElementById('captcha-input') as HTMLInputElement
-        if (!captchaInput || captchaInput.value !== window.captchaAnswer) {
-          Swal.showValidationMessage('التحقق من الإنسان غير صحيح')
-          return false
-        }
-        return true
-      }
-    })
-
-    if (!confirmExport) return
-
-    try {
-      const response = await fetch('/api/entities/export', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          entityIds: sortedEntities.map(e => e.id) 
-        }),
-      })
-
+      const response = await fetch('/api/entities/export')
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -911,7 +582,7 @@ export default function EntitiesManagement() {
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
-
+        
         Swal.fire({
           icon: 'success',
           title: 'نجاح',
@@ -939,81 +610,32 @@ export default function EntitiesManagement() {
     }
   }
 
-  // Handle import from CSV
-  const handleImportCSV = async () => {
+  // Handle import
+  const handleImport = async () => {
     if (!importFile) {
       Swal.fire({
         icon: 'warning',
         title: 'تنبيه',
-        text: 'يرجى اختيار ملف CSV أولاً',
+        text: 'يرجى اختيار ملف للإستيراد',
         confirmButtonText: 'موافق',
         confirmButtonColor: '#f59e0b'
       })
       return
     }
 
-    setCaptchaReset(false)
-    setCaptchaValid(false)
-    
-    const { value: confirmImport } = await Swal.fire({
-      title: 'استيراد البيانات من CSV',
-      html: `
-        <div class="text-right">
-          <p>هل أنت متأكد من استيراد البيانات من الملف المحدد؟ سيتم إضافة الجهات الجديدة إلى النظام.</p>
-          <div id="captcha-container" class="mt-4"></div>
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'نعم، استورد',
-      cancelButtonText: 'إلغاء',
-      confirmButtonColor: '#16a34a',
-      cancelButtonColor: '#6b7280',
-      reverseButtons: true,
-      didOpen: () => {
-        const container = document.getElementById('captcha-container')
-        if (container) {
-          let captchaText = ''
-          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-          for (let i = 0; i < 6; i++) {
-            captchaText += chars.charAt(Math.floor(Math.random() * chars.length))
-          }
-          
-          container.innerHTML = `
-            <div class="space-y-3">
-              <label class="text-sm font-medium">التحقق من الإنسان (CAPTCHA)</label>
-              <div class="flex items-center gap-2">
-                <div class="bg-gray-100 border-2 border-gray-300 rounded px-3 py-2 font-mono text-sm font-bold text-gray-700" style="letter-spacing: 2px;">
-                  ${captchaText}
-                </div>
-                <button type="button" onclick="location.reload()" class="p-1 border rounded">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                </button>
-              </div>
-              <input type="text" id="captcha-input" placeholder="أدخل النص الموضح" class="w-full px-3 py-2 border rounded" maxlength="6">
-            </div>
-          `
-          
-          window.captchaAnswer = captchaText
-        }
-      },
-      preConfirm: () => {
-        const captchaInput = document.getElementById('captcha-input') as HTMLInputElement
-        if (!captchaInput || captchaInput.value !== window.captchaAnswer) {
-          Swal.showValidationMessage('التحقق من الإنسان غير صحيح')
-          return false
-        }
-        return true
-      }
-    })
-
-    if (!confirmImport) return
+    const formData = new FormData()
+    formData.append('file', importFile)
 
     try {
-      const formData = new FormData()
-      formData.append('file', importFile)
+      // Show loading state
+      Swal.fire({
+        title: 'جاري الاستيراد...',
+        text: 'يرجى الانتظار',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading()
+        }
+      })
 
       const response = await fetch('/api/entities/import', {
         method: 'POST',
@@ -1021,22 +643,20 @@ export default function EntitiesManagement() {
       })
 
       if (response.ok) {
-        const result = await response.json()
         Swal.fire({
           icon: 'success',
           title: 'نجاح',
-          html: `تم استيراد البيانات بنجاح<br>تم إضافة ${result.imported} جهة جديدة`,
+          text: 'تم استيراد البيانات بنجاح',
           confirmButtonText: 'موافق',
           confirmButtonColor: '#16a34a'
         })
         fetchEntities()
         setImportFile(null)
       } else {
-        const error = await response.json()
         Swal.fire({
           icon: 'error',
           title: 'خطأ',
-          text: error.message || 'فشل في استيراد البيانات',
+          text: 'فشل في استيراد البيانات',
           confirmButtonText: 'موافق',
           confirmButtonColor: '#dc2626'
         })
@@ -1052,1488 +672,874 @@ export default function EntitiesManagement() {
     }
   }
 
-  // Get entity type icon
-  const getEntityTypeIcon = (type: string) => {
-    switch (type) {
-      case 'main': return Building2
-      case 'branch': return Home
-      case 'workers': return Users
-      default: return Building2
-    }
-  }
-
-  // Get entity type label
-  const getEntityTypeLabel = (type: string) => {
-    const entity = entityTypes.find(t => t.value === type)
-    return entity?.label || type
-  }
-
-  // Get entity type color
-  const getEntityTypeColor = (type: string) => {
-    switch (type) {
-      case 'main': return 'bg-blue-100 text-blue-800'
-      case 'branch': return 'bg-green-100 text-green-800'
-      case 'workers': return 'bg-orange-100 text-orange-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">جاري التحميل...</div>
-      </div>
-    )
-  }
+  // Calculate statistics
+  const activeEntities = entities.filter(e => !e.isArchived)
+  const archivedEntities = entities.filter(e => e.isArchived)
+  const totalRevenue = entities.reduce((sum, entity) => sum + (entity.totalRevenue || 0), 0)
+  const mainEntities = activeEntities.filter(e => e.type === 'main')
+  const branchEntities = activeEntities.filter(e => e.type === 'branch')
+  const workersEntities = activeEntities.filter(e => e.type === 'workers')
 
   return (
-    <div className="container mx-auto p-6 space-y-6" dir="rtl">
+    <div className="container mx-auto p-4 space-y-6" dir="rtl">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">إدارة الجهات</h1>
+          <p className="text-gray-600 mt-1">إدارة الجهات الرئيسية والفرعية والعاملين</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsImportDialogOpen(true)} variant="outline">
+            <Upload className="h-4 w-4 ml-2" />
+            استيراد
+          </Button>
+          <Button onClick={handleExport} variant="outline">
+            <Download className="h-4 w-4 ml-2" />
+            تصدير
+          </Button>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 ml-2" />
+            إضافة جهة
+          </Button>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">إجمالي الجهات</CardTitle>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{convertToArabicNumerals(entities.length.toString())}</div>
+            <p className="text-xs text-muted-foreground">
+              {convertToArabicNumerals(activeEntities.length.toString())} نشط، {convertToArabicNumerals(archivedEntities.length.toString())} مؤرشف
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">الإيرادات الإجمالية</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <p className="text-xs text-muted-foreground">
+              من {convertToArabicNumerals(activeEntities.length.toString())} جهة نشطة
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">الجهات الرئيسية</CardTitle>
+            <Scale className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{convertToArabicNumerals(mainEntities.length.toString())}</div>
+            <p className="text-xs text-muted-foreground">
+              {convertToArabicNumerals(mainEntities.reduce((sum, e) => sum + (e.revenuesCount || 0), 0).toString())} إيرادة
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">الجهات الفرعية</CardTitle>
+            <Home className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{convertToArabicNumerals(branchEntities.length.toString())}</div>
+            <p className="text-xs text-muted-foreground">
+              {convertToArabicNumerals(workersEntities.length.toString())} جهة عاملين
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="h-6 w-6" />
-            إدارة الجهات
-          </CardTitle>
-          <CardDescription>
-            نظام إدارة الجهات الحكومية والمؤسسات
-          </CardDescription>
+          <CardTitle>البحث والتصفية</CardTitle>
+          <CardDescription>ابحث وصفِ الجهات حسب المعايير المختلفة</CardDescription>
         </CardHeader>
-        <CardContent>
-          {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">إجمالي الجهات</p>
-                    <p className="text-2xl font-bold">{entities.length}</p>
-                  </div>
-                  <Building2 className="h-8 w-8 text-blue-500" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">الجهات النشطة</p>
-                    <p className="text-2xl font-bold">
-                      {entities.filter(e => !e.isArchived).length}
-                    </p>
-                  </div>
-                  <Scale className="h-8 w-8 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">الجهات المؤرشفة</p>
-                    <p className="text-2xl font-bold">
-                      {entities.filter(e => e.isArchived).length}
-                    </p>
-                  </div>
-                  <Archive className="h-8 w-8 text-orange-500" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {activeTab === 'active' ? 'الجهات الرئيسية النشطة' : 'الجهات الرئيسية المؤرشفة'}
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {entities.filter(e => e.type === 'main' && (activeTab === 'active' ? !e.isArchived : e.isArchived)).length}
-                    </p>
-                  </div>
-                  <Home className="h-8 w-8 text-purple-500" />
-                </div>
-              </CardContent>
-            </Card>
+        <CardContent className="space-y-4">
+          {/* Search */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="ابحث (3 أحرف على الأقل)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10 text-right"
+              />
+            </div>
+            <Button variant="outline" onClick={() => setIsFilterOpen(!isFilterOpen)}>
+              <Filter className="h-4 w-4 ml-2" />
+              تصفية متقدمة
+            </Button>
           </div>
 
-          {/* Unified Search and Filter Bar */}
-          <div className="space-y-4 mb-6">
-            {/* Quick Search */}
-            <div className="relative">
-              <Search className="absolute right-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="البحث السريع (اكتب 3 أحرف على الأقل للبحث في جميع الحقول)..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  setCurrentPage(1) // Reset to first page on search
-                }}
-                className="pr-10"
-              />
-              {searchQuery.length > 0 && searchQuery.length < 3 && (
-                <p className="text-xs text-amber-600 mt-1">يرجى إدخال 3 أحرف على الأقل للبدء في البحث</p>
-              )}
-            </div>
+          {/* Advanced Filters */}
+          {isFilterOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg space-y-4 md:space-y-0">
+              <div>
+                <Label htmlFor="filterType">النوع</Label>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر النوع" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">الكل</SelectItem>
+                    <SelectItem value="main">رئيسية</SelectItem>
+                    <SelectItem value="branch">فرعية</SelectItem>
+                    <SelectItem value="workers">عاملين</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="filterGovernorate">المحافظة</Label>
+                <Select value={filterGovernorate} onValueChange={setFilterGovernorate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر المحافظة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">الكل</SelectItem>
+                    {governorates.map(gov => (
+                      <SelectItem key={gov} value={gov}>{gov}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="revenueStartDate">من تاريخ</Label>
+                <Input
+                  type="date"
+                  value={filters.revenueStartDate}
+                  onChange={(e) => setFilters({...filters, revenueStartDate: e.target.value})}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="revenueEndDate">إلى تاريخ</Label>
+                <Input
+                  type="date"
+                  value={filters.revenueEndDate}
+                  onChange={(e) => setFilters({...filters, revenueEndDate: e.target.value})}
+                />
+              </div>
 
-            {/* Filter and Actions Row */}
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className="flex items-center gap-2"
-                >
-                  <Filter className="h-4 w-4" />
-                  الفلاتر المتقدمة
-                  {(filters.type !== 'all' || filters.governorate !== 'all' || 
-                    filters.hasDescription || filters.hasPhone || filters.hasEmail || 
-                    filters.hasWebsite || filters.createdAfter || filters.createdBefore ||
-                    filters.minTotalRevenue || filters.maxTotalRevenue ||
-                    filters.minRevenuesCount || filters.maxRevenuesCount ||
-                    filters.revenueStartDate || filters.revenueEndDate) && (
-                    <Badge variant="secondary" className="mr-1">نشط</Badge>
-                  )}
-                </Button>
+              <div>
+                <Label>الحقول المتوفرة</Label>
+                <div className="space-y-2 mt-2">
+                  <label className="flex items-center space-x-2 space-x-reverse">
+                    <input
+                      type="checkbox"
+                      checked={filters.hasDescription}
+                      onChange={(e) => setFilters({...filters, hasDescription: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">يحتوي على وصف</span>
+                  </label>
+                  <label className="flex items-center space-x-2 space-x-reverse">
+                    <input
+                      type="checkbox"
+                      checked={filters.hasPhone}
+                      onChange={(e) => setFilters({...filters, hasPhone: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">يحتوي على هاتف</span>
+                  </label>
+                  <label className="flex items-center space-x-2 space-x-reverse">
+                    <input
+                      type="checkbox"
+                      checked={filters.hasEmail}
+                      onChange={(e) => setFilters({...filters, hasEmail: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">يحتوي على بريد إلكتروني</span>
+                  </label>
+                  <label className="flex items-center space-x-2 space-x-reverse">
+                    <input
+                      type="checkbox"
+                      checked={filters.hasWebsite}
+                      onChange={(e) => setFilters({...filters, hasWebsite: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">يحتوي على موقع إلكتروني</span>
+                  </label>
+                </div>
+              </div>
 
-                {/* Sort Options */}
+              <div>
+                <Label htmlFor="minTotalRevenue">الإيرادات من</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={filters.minTotalRevenue}
+                  onChange={(e) => setFilters({...filters, minTotalRevenue: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="maxTotalRevenue">الإيرادات إلى</Label>
+                <Input
+                  type="number"
+                  placeholder="∞"
+                  value={filters.maxTotalRevenue}
+                  onChange={(e) => setFilters({...filters, maxTotalRevenue: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="minRevenuesCount">عدد الإيرادات من</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={filters.minRevenuesCount}
+                  onChange={(e) => setFilters({...filters, minRevenuesCount: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="maxRevenuesCount">عدد الإيرادات إلى</Label>
+                <Input
+                  type="number"
+                  placeholder="∞"
+                  value={filters.maxRevenuesCount}
+                  onChange={(e) => setFilters({...filters, maxRevenuesCount: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="createdAfter">أنشئ بعد تاريخ</Label>
+                <Input
+                  type="date"
+                  value={filters.createdAfter}
+                  onChange={(e) => setFilters({...filters, createdAfter: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="createdBefore">أنشئ قبل تاريخ</Label>
+                <Input
+                  type="date"
+                  value={filters.createdBefore}
+                  onChange={(e) => setFilters({...filters, createdBefore: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="sortBy">الترتيب حسب</Label>
                 <Select value={filters.sortBy} onValueChange={(value) => setFilters({...filters, sortBy: value})}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="ترتيب حسب" />
+                  <SelectTrigger>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="createdAt">تاريخ الإنشاء</SelectItem>
                     <SelectItem value="name">الاسم</SelectItem>
-                    <SelectItem value="type">النوع</SelectItem>
                     <SelectItem value="governorate">المحافظة</SelectItem>
-                    <SelectItem value="totalRevenue">إجمالي الإيرادات</SelectItem>
+                    <SelectItem value="totalRevenue">الإيرادات</SelectItem>
                     <SelectItem value="revenuesCount">عدد الإيرادات</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
 
+              <div>
+                <Label htmlFor="sortOrder">طريقة الترتيب</Label>
                 <Select value={filters.sortOrder} onValueChange={(value) => setFilters({...filters, sortOrder: value})}>
-                  <SelectTrigger className="w-24">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="desc">الأحدث</SelectItem>
-                    <SelectItem value="asc">الأقدم</SelectItem>
+                    <SelectItem value="asc">تصاعدي</SelectItem>
+                    <SelectItem value="desc">تنازلي</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 ml-2" />
-                      إضافة جهة
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>إضافة جهة جديدة</DialogTitle>
-                      <DialogDescription>
-                        أدخل بيانات الجهة الجديدة
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit}>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="name">اسم الجهة</Label>
-                          <Input
-                            id="name"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="أدخل اسم الجهة"
-                            required
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="type">نوع الجهة</Label>
-                          <Select
-                            value={formData.type}
-                            onValueChange={(value: 'main' | 'branch' | 'workers') => 
-                              setFormData({ ...formData, type: value })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {entityTypes.map(type => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  {type.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="governorate">المحافظة</Label>
-                          <Select
-                            value={formData.governorate}
-                            onValueChange={(value) => setFormData({ ...formData, governorate: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="اختر المحافظة" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {governorates.map(gov => (
-                                <SelectItem key={gov} value={gov}>
-                                  {gov}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="description">الوصف (اختياري)</Label>
-                          <Input
-                            id="description"
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            placeholder="أدخل وصف الجهة"
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="address">العنوان (اختياري)</Label>
-                          <Input
-                            id="address"
-                            value={formData.address}
-                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                            placeholder="أدخل العنوان"
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="phone">الهاتف (اختياري)</Label>
-                          <Input
-                            id="phone"
-                            value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            placeholder="أدخل رقم الهاتف"
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="email">البريد الإلكتروني (اختياري)</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            placeholder="أدخل البريد الإلكتروني"
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="website">الموقع الإلكتروني (اختياري)</Label>
-                          <Input
-                            id="website"
-                            value={formData.website}
-                            onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                            placeholder="أدخل الموقع الإلكتروني"
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button type="submit">إضافة جهة</Button>
-                      </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportCSV}
-                >
-                  <Download className="h-4 w-4 ml-2" />
-                  تصدير الكل
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const input = document.createElement('input')
-                    input.type = 'file'
-                    input.accept = '.csv'
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0]
-                      if (file) {
-                        setImportFile(file)
-                        handleImportCSV()
-                      }
-                    }
-                    input.click()
-                  }}
-                >
-                  <Upload className="h-4 w-4 ml-2" />
-                  استيراد
-                </Button>
-              </div>
             </div>
+          )}
+        </CardContent>
+      </Card>
 
-            {/* Advanced Filters Panel */}
-            {isFilterOpen && (
-              <Card className="border-2 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">نوع الجهة</Label>
-                      <Select value={filters.type} onValueChange={(value) => setFilters({...filters, type: value})}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">جميع الأنواع</SelectItem>
-                          {entityTypes.map(type => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">المحافظة</Label>
-                      <Select value={filters.governorate} onValueChange={(value) => setFilters({...filters, governorate: value})}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">جميع المحافظات</SelectItem>
-                          {governorates.map(gov => (
-                            <SelectItem key={gov} value={gov}>
-                              {gov}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">الحقول الإضافية</Label>
-                      <div className="mt-2 space-y-1">
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={filters.hasDescription}
-                            onChange={(e) => setFilters({...filters, hasDescription: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">لديه وصف</span>
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={filters.hasPhone}
-                            onChange={(e) => setFilters({...filters, hasPhone: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">لديه هاتف</span>
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={filters.hasEmail}
-                            onChange={(e) => setFilters({...filters, hasEmail: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">لديه بريد إلكتروني</span>
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={filters.hasWebsite}
-                            onChange={(e) => setFilters({...filters, hasWebsite: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">لديه موقع إلكتروني</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">تاريخ الإنشاء من</Label>
-                      <Input
-                        type="date"
-                        value={filters.createdAfter}
-                        onChange={(e) => setFilters({...filters, createdAfter: e.target.value})}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">تاريخ الإنشاء إلى</Label>
-                      <Input
-                        type="date"
-                        value={filters.createdBefore}
-                        onChange={(e) => setFilters({...filters, createdBefore: e.target.value})}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">إجمالي الإيرادات من (ج.م)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={filters.minTotalRevenue}
-                        onChange={(e) => setFilters({...filters, minTotalRevenue: e.target.value})}
-                        className="mt-1"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">إجمالي الإيرادات إلى (ج.م)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={filters.maxTotalRevenue}
-                        onChange={(e) => setFilters({...filters, maxTotalRevenue: e.target.value})}
-                        className="mt-1"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">عدد الإيرادات من</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={filters.minRevenuesCount}
-                        onChange={(e) => setFilters({...filters, minRevenuesCount: e.target.value})}
-                        className="mt-1"
-                        placeholder="0"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">عدد الإيرادات إلى</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={filters.maxRevenuesCount}
-                        onChange={(e) => setFilters({...filters, maxRevenuesCount: e.target.value})}
-                        className="mt-1"
-                        placeholder="0"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">فترة الإيرادات من</Label>
-                      <Input
-                        type="date"
-                        value={filters.revenueStartDate}
-                        onChange={(e) => setFilters({...filters, revenueStartDate: e.target.value})}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">فترة الإيرادات إلى</Label>
-                      <Input
-                        type="date"
-                        value={filters.revenueEndDate}
-                        onChange={(e) => setFilters({...filters, revenueEndDate: e.target.value})}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div className="flex items-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setFilters({
-                          type: 'all',
-                          governorate: 'all',
-                          hasDescription: false,
-                          hasPhone: false,
-                          hasEmail: false,
-                          hasWebsite: false,
-                          minTotalRevenue: '',
-                          maxTotalRevenue: '',
-                          minRevenuesCount: '',
-                          maxRevenuesCount: '',
-                          createdAfter: '',
-                          createdBefore: '',
-                          revenueStartDate: '',
-                          revenueEndDate: '',
-                          sortBy: 'createdAt',
-                          sortOrder: 'desc'
-                        })}
-                      >
-                        إعادة تعيين الفلاتر
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Selected Items Actions */}
-            {selectedEntities.length > 0 && (
-              <Card className="border-2 border-green-200 bg-green-50">
-                <CardContent className="p-4">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <CheckSquare className="h-5 w-5 text-green-600" />
-                      <span className="font-medium text-green-800">
-                        تم تحديد {selectedEntities.length} جهة
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {activeTab === 'active' ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleBulkArchive(true)}
-                          className="text-orange-600 hover:text-orange-700"
-                        >
-                          <Archive className="h-4 w-4 ml-1" />
-                          أرشفة المحدد
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleBulkArchive(false)}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <ArchiveRestore className="h-4 w-4 ml-1" />
-                          إعادة تفعيل المحدد
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleBulkExport}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        <Download className="h-4 w-4 ml-1" />
-                        تصدير المحدد
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleBulkDelete}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4 ml-1" />
-                        حذف المحدد
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedEntities([])}
-                      >
-                        إلغاء التحديد
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Tabs for Active and Archived Entities */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="active" className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                الجهات النشطة
-                <Badge variant="secondary">
-                  {entities.filter(e => !e.isArchived).length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="archived" className="flex items-center gap-2">
-                <Archive className="h-4 w-4" />
-                الجهات المؤرشفة
-                <Badge variant="secondary">
-                  {entities.filter(e => e.isArchived).length}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="active" className="space-y-4">
-              {/* Results Summary */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="text-sm text-gray-600">
-                  إجمالي النتائج: {sortedEntities.length} جهة
-                  {searchQuery.length >= 3 && (
-                    <span className="mr-2">| البحث عن: "{searchQuery}"</span>
-                  )}
-                </div>
-                
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm font-medium">
-                      صفحة {currentPage} من {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Mobile-Optimized Table */}
-              <div className="rounded-md border overflow-hidden">
-                {/* Desktop Table */}
-                <div className="hidden lg:block overflow-x-auto">
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="active">الجهات النشطة ({convertToArabicNumerals(activeEntities.length.toString())})</TabsTrigger>
+          <TabsTrigger value="archived">الجهات المؤرشفة ({convertToArabicNumerals(archivedEntities.length.toString())})</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="active" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>الجهات النشطة</CardTitle>
+              <CardDescription>قائمة بجميع الجهات النشطة في النظام</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">جاري التحميل...</div>
+              ) : (
+                <>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-right w-12">
-                          <input
-                            type="checkbox"
-                            checked={isAllSelected}
-                            ref={(el) => {
-                              if (el) el.indeterminate = isIndeterminate
-                            }}
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                            className="rounded"
-                          />
-                        </TableHead>
-                        <TableHead className="text-right">الرقم</TableHead>
-                        <TableHead className="text-right">اسم الجهة</TableHead>
+                        <TableHead className="text-right">الاسم</TableHead>
                         <TableHead className="text-right">النوع</TableHead>
+                        <TableHead className="text-right">النوع الفرعي</TableHead>
                         <TableHead className="text-right">المحافظة</TableHead>
-                        <TableHead className="text-right">
-                          <div className="flex items-center gap-1 justify-end">
-                            إجمالي الإيرادات
-                            {(filters.revenueStartDate || filters.revenueEndDate) && <Calendar className="h-3 w-3 text-blue-500" />}
-                          </div>
-                        </TableHead>
+                        <TableHead className="text-right">الإيرادات</TableHead>
                         <TableHead className="text-right">عدد الإيرادات</TableHead>
-                        <TableHead className="text-right">تاريخ الإنشاء</TableHead>
                         <TableHead className="text-right">الإجراءات</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedEntities.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8">
-                            {searchQuery.length >= 3 ? 'لا توجد نتائج مطابقة للبحث' : 'لا توجد جهات نشطة'}
+                      {paginatedEntities.map((entity) => (
+                        <TableRow key={entity.id}>
+                          <TableCell className="font-medium">{entity.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {entity.type === 'main' ? 'رئيسية' : entity.type === 'branch' ? 'فرعية' : 'عاملين'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {entity.type === 'main' && entity.subtype ? (
+                              <Badge variant="secondary">
+                                {mainEntitySubtypes.find(st => st.value === entity.subtype)?.label || entity.subtype}
+                              </Badge>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>{entity.governorate}</TableCell>
+                          <TableCell>{formatCurrency(entity.totalRevenue || 0)}</TableCell>
+                          <TableCell>{convertToArabicNumerals((entity.revenuesCount || 0).toString())}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handleView(entity)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(entity)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleArchive(entity.id, true)}>
+                                <Archive className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(entity.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      ) : (
-                        paginatedEntities.map((entity) => {
-                          const Icon = getEntityTypeIcon(entity.type)
-                          return (
-                            <TableRow key={entity.id} className="hover:bg-gray-50">
-                              <TableCell>
-                                <input
-                                  type="checkbox"
-                                  checked={selectedEntities.includes(entity.id)}
-                                  onChange={(e) => handleSelectEntity(entity.id, e.target.checked)}
-                                  className="rounded"
-                                />
-                              </TableCell>
-                              <TableCell className="font-medium">{entity.id}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Icon className="h-4 w-4" />
-                                  <span className="font-medium">{entity.name}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={getEntityTypeColor(entity.type)}>
-                                  {getEntityTypeLabel(entity.type)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{entity.governorate}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <DollarSign className={`h-3 w-3 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`} />
-                                  <span className={`font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`}>
-                                    {entity.totalRevenue ? entity.totalRevenue.toFixed(2) : '0.00'} ج.م
-                                  </span>
-                                  {(filters.revenueStartDate || filters.revenueEndDate) && (
-                                    <Calendar className="h-2 w-2 text-blue-500" />
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center justify-center">
-                                  {entity.revenuesCount && entity.revenuesCount > 0 ? (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {entity.revenuesCount}
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-gray-400 text-sm">0</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {new Date(entity.createdAt).toLocaleDateString('ar-EG')}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleView(entity)}
-                                    className="text-blue-600 hover:text-blue-700 h-8 w-8 p-0"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleEdit(entity)}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleArchive(entity.id, true)}
-                                    className="text-orange-600 hover:text-orange-700 h-8 w-8 p-0"
-                                  >
-                                    <Archive className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDelete(entity.id)}
-                                    className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })
-                      )}
+                      ))}
                     </TableBody>
                   </Table>
-                </div>
-
-                {/* Mobile Cards */}
-                <div className="lg:hidden space-y-3 p-4">
-                  {paginatedEntities.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      {searchQuery.length >= 3 ? 'لا توجد نتائج مطابقة للبحث' : 'لا توجد جهات نشطة'}
+                  
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-between items-center mt-4">
+                      <div className="text-sm text-gray-600">
+                        عرض {convertToArabicNumerals(((currentPage - 1) * itemsPerPage + 1).toString())} إلى {convertToArabicNumerals((Math.min(currentPage * itemsPerPage, sortedEntities.length)).toString())} من {convertToArabicNumerals(sortedEntities.length.toString())} جهة
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronRight className="h-4 w-4 ml-2" />
+                          السابق
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          التالي
+                          <ChevronLeft className="h-4 w-4 mr-2" />
+                        </Button>
+                      </div>
                     </div>
-                  ) : (
-                    paginatedEntities.map((entity) => {
-                      const Icon = getEntityTypeIcon(entity.type)
-                      return (
-                        <Card key={entity.id} className="border-l-4 border-l-blue-500">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3 flex-1">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedEntities.includes(entity.id)}
-                                  onChange={(e) => handleSelectEntity(entity.id, e.target.checked)}
-                                  className="rounded mt-1"
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Icon className="h-4 w-4 text-blue-600" />
-                                    <h3 className="font-semibold text-lg truncate">{entity.name}</h3>
-                                  </div>
-                                  <div className="space-y-1 text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Badge className={getEntityTypeColor(entity.type)}>
-                                        {getEntityTypeLabel(entity.type)}
-                                      </Badge>
-                                      <span className="text-gray-600">{entity.governorate}</span>
-                                    </div>
-                                    <div className="text-gray-500">
-                                      {new Date(entity.createdAt).toLocaleDateString('ar-EG')}
-                                    </div>
-                                    
-                                    {/* Revenue Information */}
-                                    <div className={`border rounded-lg p-2 mt-2 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'}`}>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1">
-                                          <DollarSign className={`h-3 w-3 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`} />
-                                          <span className={`text-xs font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-800' : 'text-green-800'}`}>
-                                            إجمالي الإيرادات{(filters.revenueStartDate || filters.revenueEndDate) ? ' (للفترة):' : ':'}
-                                          </span>
-                                          <span className={`text-xs font-bold ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-700' : 'text-green-700'}`}>
-                                            {entity.totalRevenue ? entity.totalRevenue.toFixed(2) : '0.00'} ج.م
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                          <span className={`text-xs font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-800' : 'text-green-800'}`}>العدد:</span>
-                                          {entity.revenuesCount && entity.revenuesCount > 0 ? (
-                                            <Badge variant="secondary" className={`text-xs ${(filters.revenueStartDate || filters.revenueEndDate) ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                                              {entity.revenuesCount}
-                                            </Badge>
-                                          ) : (
-                                            <span className={`text-xs ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`}>0</span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {(filters.revenueStartDate || filters.revenueEndDate) && (
-                                        <div className="mt-1 text-xs text-blue-600">
-                                          <Calendar className="h-2 w-2 inline ml-1" />
-                                          {filters.revenueStartDate && `من ${new Date(filters.revenueStartDate).toLocaleDateString('ar-EG')}`}
-                                          {filters.revenueEndDate && ` إلى ${new Date(filters.revenueEndDate).toLocaleDateString('ar-EG')}`}
-                                        </div>
-                                      )}
-                                    </div>
-                                    {(entity.description || entity.phone || entity.email) && (
-                                      <div className="text-xs text-gray-400 mt-2">
-                                        {entity.description && (
-                                          <div className="truncate">{entity.description}</div>
-                                        )}
-                                        {entity.phone && (
-                                          <div>📞 {entity.phone}</div>
-                                        )}
-                                        {entity.email && (
-                                          <div>✉️ {entity.email}</div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleView(entity)}
-                                  className="text-blue-600 hover:text-blue-700 h-8 w-8 p-0"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEdit(entity)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleArchive(entity.id, true)}
-                                  className="text-orange-600 hover:text-orange-700 h-8 w-8 p-0"
-                                >
-                                  <Archive className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDelete(entity.id)}
-                                  className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )
-                    })
                   )}
-                </div>
-              </div>
-
-              {/* Mobile Pagination */}
-              {totalPages > 1 && (
-                <div className="lg:hidden flex justify-center items-center gap-2 mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                    السابق
-                  </Button>
-                  <span className="text-sm font-medium px-3">
-                    {currentPage} / {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    التالي
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </div>
+                </>
               )}
-            </TabsContent>
-
-            <TabsContent value="archived" className="space-y-4">
-              {/* Results Summary */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="text-sm text-gray-600">
-                  إجمالي الجهات المؤرشفة: {sortedEntities.length} جهة
-                  {searchQuery.length >= 3 && (
-                    <span className="mr-2">| البحث عن: "{searchQuery}"</span>
-                  )}
-                </div>
-                
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm font-medium">
-                      صفحة {currentPage} من {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Mobile-Optimized Table */}
-              <div className="rounded-md border overflow-hidden">
-                {/* Desktop Table */}
-                <div className="hidden lg:block overflow-x-auto">
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="archived" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>الجهات المؤرشفة</CardTitle>
+              <CardDescription>قائمة بجميع الجهات المؤرشفة في النظام</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">جاري التحميل...</div>
+              ) : (
+                <>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-right w-12">
-                          <input
-                            type="checkbox"
-                            checked={isAllSelected}
-                            ref={(el) => {
-                              if (el) el.indeterminate = isIndeterminate
-                            }}
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                            className="rounded"
-                          />
-                        </TableHead>
-                        <TableHead className="text-right">الرقم</TableHead>
-                        <TableHead className="text-right">اسم الجهة</TableHead>
+                        <TableHead className="text-right">الاسم</TableHead>
                         <TableHead className="text-right">النوع</TableHead>
+                        <TableHead className="text-right">النوع الفرعي</TableHead>
                         <TableHead className="text-right">المحافظة</TableHead>
-                        <TableHead className="text-right">
-                          <div className="flex items-center gap-1 justify-end">
-                            إجمالي الإيرادات
-                            {(filters.revenueStartDate || filters.revenueEndDate) && <Calendar className="h-3 w-3 text-blue-500" />}
-                          </div>
-                        </TableHead>
-                        <TableHead className="text-right">عدد الإيرادات</TableHead>
                         <TableHead className="text-right">تاريخ الأرشفة</TableHead>
                         <TableHead className="text-right">الإجراءات</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedEntities.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8">
-                            {searchQuery.length >= 3 ? 'لا توجد نتائج مطابقة للبحث' : 'لا توجد جهات مؤرشفة'}
+                      {paginatedEntities.map((entity) => (
+                        <TableRow key={entity.id}>
+                          <TableCell className="font-medium">{entity.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {entity.type === 'main' ? 'رئيسية' : entity.type === 'branch' ? 'فرعية' : 'عاملين'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {entity.type === 'main' && entity.subtype ? (
+                              <Badge variant="secondary">
+                                {mainEntitySubtypes.find(st => st.value === entity.subtype)?.label || entity.subtype}
+                              </Badge>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>{entity.governorate}</TableCell>
+                          <TableCell>{entity.archivedAt ? new Date(entity.archivedAt).toLocaleDateString('ar-EG') : '-'}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handleView(entity)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleArchive(entity.id, false)}>
+                                <ArchiveRestore className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(entity.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      ) : (
-                        paginatedEntities.map((entity) => {
-                          const Icon = getEntityTypeIcon(entity.type)
-                          return (
-                            <TableRow key={entity.id} className="bg-gray-50 hover:bg-gray-100">
-                              <TableCell>
-                                <input
-                                  type="checkbox"
-                                  checked={selectedEntities.includes(entity.id)}
-                                  onChange={(e) => handleSelectEntity(entity.id, e.target.checked)}
-                                  className="rounded"
-                                />
-                              </TableCell>
-                              <TableCell className="font-medium">{entity.id}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Icon className="h-4 w-4 text-gray-500" />
-                                  <span className="text-gray-700">{entity.name}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={getEntityTypeColor(entity.type)}>
-                                  {getEntityTypeLabel(entity.type)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{entity.governorate}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <DollarSign className={`h-3 w-3 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`} />
-                                  <span className={`font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`}>
-                                    {entity.totalRevenue ? entity.totalRevenue.toFixed(2) : '0.00'} ج.م
-                                  </span>
-                                  {(filters.revenueStartDate || filters.revenueEndDate) && (
-                                    <Calendar className="h-2 w-2 text-blue-500" />
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center justify-center">
-                                  {entity.revenuesCount && entity.revenuesCount > 0 ? (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {entity.revenuesCount}
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-gray-400 text-sm">0</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {entity.archivedAt 
-                                  ? new Date(entity.archivedAt).toLocaleDateString('ar-EG')
-                                  : new Date(entity.createdAt).toLocaleDateString('ar-EG')
-                                }
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleView(entity)}
-                                    className="text-blue-600 hover:text-blue-700 h-8 w-8 p-0"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleArchive(entity.id, false)}
-                                    className="text-green-600 hover:text-green-700 h-8 w-8 p-0"
-                                  >
-                                    <ArchiveRestore className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDelete(entity.id)}
-                                    className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })
-                      )}
+                      ))}
                     </TableBody>
                   </Table>
-                </div>
-
-                {/* Mobile Cards */}
-                <div className="lg:hidden space-y-3 p-4">
-                  {paginatedEntities.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      {searchQuery.length >= 3 ? 'لا توجد نتائج مطابقة للبحث' : 'لا توجد جهات مؤرشفة'}
+                  
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-between items-center mt-4">
+                      <div className="text-sm text-gray-600">
+                        عرض {convertToArabicNumerals(((currentPage - 1) * itemsPerPage + 1).toString())} إلى {convertToArabicNumerals((Math.min(currentPage * itemsPerPage, sortedEntities.length)).toString())} من {convertToArabicNumerals(sortedEntities.length.toString())} جهة
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronRight className="h-4 w-4 ml-2" />
+                          السابق
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          التالي
+                          <ChevronLeft className="h-4 w-4 mr-2" />
+                        </Button>
+                      </div>
                     </div>
-                  ) : (
-                    paginatedEntities.map((entity) => {
-                      const Icon = getEntityTypeIcon(entity.type)
-                      return (
-                        <Card key={entity.id} className="border-l-4 border-l-gray-400 bg-gray-50">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3 flex-1">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedEntities.includes(entity.id)}
-                                  onChange={(e) => handleSelectEntity(entity.id, e.target.checked)}
-                                  className="rounded mt-1"
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Icon className="h-4 w-4 text-gray-500" />
-                                    <h3 className="font-semibold text-lg truncate text-gray-700">{entity.name}</h3>
-                                  </div>
-                                  <div className="space-y-1 text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Badge className={getEntityTypeColor(entity.type)}>
-                                        {getEntityTypeLabel(entity.type)}
-                                      </Badge>
-                                      <span className="text-gray-600">{entity.governorate}</span>
-                                    </div>
-                                    <div className="text-gray-500">
-                                      أرشفة: {entity.archivedAt 
-                                        ? new Date(entity.archivedAt).toLocaleDateString('ar-EG')
-                                        : new Date(entity.createdAt).toLocaleDateString('ar-EG')
-                                      }
-                                    </div>
-                                    
-                                    {/* Revenue Information */}
-                                    <div className={`border rounded-lg p-2 mt-2 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'}`}>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1">
-                                          <DollarSign className={`h-3 w-3 ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`} />
-                                          <span className={`text-xs font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-800' : 'text-green-800'}`}>
-                                            إجمالي الإيرادات{(filters.revenueStartDate || filters.revenueEndDate) ? ' (للفترة):' : ':'}
-                                          </span>
-                                          <span className={`text-xs font-bold ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-700' : 'text-green-700'}`}>
-                                            {entity.totalRevenue ? entity.totalRevenue.toFixed(2) : '0.00'} ج.م
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                          <span className={`text-xs font-medium ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-800' : 'text-green-800'}`}>العدد:</span>
-                                          {entity.revenuesCount && entity.revenuesCount > 0 ? (
-                                            <Badge variant="secondary" className={`text-xs ${(filters.revenueStartDate || filters.revenueEndDate) ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                                              {entity.revenuesCount}
-                                            </Badge>
-                                          ) : (
-                                            <span className={`text-xs ${(filters.revenueStartDate || filters.revenueEndDate) ? 'text-blue-600' : 'text-green-600'}`}>0</span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {(filters.revenueStartDate || filters.revenueEndDate) && (
-                                        <div className="mt-1 text-xs text-blue-600">
-                                          <Calendar className="h-2 w-2 inline ml-1" />
-                                          {filters.revenueStartDate && `من ${new Date(filters.revenueStartDate).toLocaleDateString('ar-EG')}`}
-                                          {filters.revenueEndDate && ` إلى ${new Date(filters.revenueEndDate).toLocaleDateString('ar-EG')}`}
-                                        </div>
-                                      )}
-                                    </div>
-                                    {(entity.description || entity.phone || entity.email) && (
-                                      <div className="text-xs text-gray-400 mt-2">
-                                        {entity.description && (
-                                          <div className="truncate">{entity.description}</div>
-                                        )}
-                                        {entity.phone && (
-                                          <div>📞 {entity.phone}</div>
-                                        )}
-                                        {entity.email && (
-                                          <div>✉️ {entity.email}</div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleView(entity)}
-                                  className="text-blue-600 hover:text-blue-700 h-8 w-8 p-0"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleArchive(entity.id, false)}
-                                  className="text-green-600 hover:text-green-700 h-8 w-8 p-0"
-                                >
-                                  <ArchiveRestore className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDelete(entity.id)}
-                                  className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )
-                    })
                   )}
-                </div>
-              </div>
-
-              {/* Mobile Pagination */}
-              {totalPages > 1 && (
-                <div className="lg:hidden flex justify-center items-center gap-2 mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                    السابق
-                  </Button>
-                  <span className="text-sm font-medium px-3">
-                    {currentPage} / {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    التالي
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </div>
+                </>
               )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+      {/* Add Entity Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>تعديل الجهة</DialogTitle>
-            <DialogDescription>
-              قم بتعديل بيانات الجهة
-            </DialogDescription>
+            <DialogTitle>إضافة جهة جديدة</DialogTitle>
+            <DialogDescription>أدخل بيانات الجهة الجديدة في النموذج أدناه</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-name">اسم الجهة</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">الاسم *</Label>
                 <Input
-                  id="edit-name"
+                  id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="أدخل اسم الجهة"
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
                   required
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-type">نوع الجهة</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value: 'main' | 'branch' | 'workers') => 
-                    setFormData({ ...formData, type: value })
-                  }
-                >
+              
+              <div>
+                <Label htmlFor="type">النوع *</Label>
+                <Select value={formData.type} onValueChange={(value: 'main' | 'branch' | 'workers') => setFormData({...formData, type: value, subtype: ''})}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="اختر النوع" />
                   </SelectTrigger>
                   <SelectContent>
-                    {entityTypes.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="main">رئيسية</SelectItem>
+                    <SelectItem value="branch">فرعية</SelectItem>
+                    <SelectItem value="workers">عاملين</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-governorate">المحافظة</Label>
-                <Select
-                  value={formData.governorate}
-                  onValueChange={(value) => setFormData({ ...formData, governorate: value })}
-                >
+              
+              {formData.type === 'main' && (
+                <div>
+                  <Label htmlFor="subtype">النوع الفرعي *</Label>
+                  <Select value={formData.subtype} onValueChange={(value) => setFormData({...formData, subtype: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر النوع الفرعي" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mainEntitySubtypes.map(subtype => (
+                        <SelectItem key={subtype.value} value={subtype.value}>{subtype.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              <div>
+                <Label htmlFor="governorate">المحافظة *</Label>
+                <Select value={formData.governorate} onValueChange={(value) => setFormData({...formData, governorate: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="اختر المحافظة" />
                   </SelectTrigger>
                   <SelectContent>
                     {governorates.map(gov => (
-                      <SelectItem key={gov} value={gov}>
-                        {gov}
-                      </SelectItem>
+                      <SelectItem key={gov} value={gov}>{gov}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-description">الوصف (اختياري)</Label>
+              
+              <div>
+                <Label htmlFor="phone">الهاتف</Label>
                 <Input
-                  id="edit-description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="أدخل وصف الجهة"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-address">العنوان (اختياري)</Label>
-                <Input
-                  id="edit-address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="أدخل العنوان"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-phone">الهاتف (اختياري)</Label>
-                <Input
-                  id="edit-phone"
+                  id="phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="أدخل رقم الهاتف"
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-email">البريد الإلكتروني (اختياري)</Label>
+              
+              <div className="md:col-span-2">
+                <Label htmlFor="description">الوصف</Label>
                 <Input
-                  id="edit-email"
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <Label htmlFor="address">العنوان</Label>
+                <Input
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Input
+                  id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="أدخل البريد الإلكتروني"
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-website">الموقع الإلكتروني (اختياري)</Label>
+              
+              <div>
+                <Label htmlFor="website">الموقع الإلكتروني</Label>
                 <Input
-                  id="edit-website"
+                  id="website"
                   value={formData.website}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                  placeholder="أدخل الموقع الإلكتروني"
+                  onChange={(e) => setFormData({...formData, website: e.target.value})}
                 />
               </div>
             </div>
-            <DialogFooter>
-              <Button type="submit">تحديث الجهة</Button>
+            
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                إلغاء
+              </Button>
+              <Button type="submit">
+                حفظ
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* View Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+      {/* Edit Entity Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>تفاصيل الجهة</DialogTitle>
-            <DialogDescription>
-              عرض معلومات كاملة عن الجهة
-            </DialogDescription>
+            <DialogTitle>تعديل جهة</DialogTitle>
+            <DialogDescription>عدل بيانات الجهة في النموذج أدناه</DialogDescription>
           </DialogHeader>
-          {viewingEntity && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">الرقم التسلسلي</Label>
-                  <p className="text-lg font-semibold">{viewingEntity.id}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">اسم الجهة</Label>
-                  <p className="text-lg font-semibold">{viewingEntity.name}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">النوع</Label>
-                  <div className="mt-1">
-                    <Badge className={getEntityTypeColor(viewingEntity.type)}>
-                      {getEntityTypeLabel(viewingEntity.type)}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">المحافظة</Label>
-                  <p className="text-lg">{viewingEntity.governorate}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">تاريخ الإنشاء</Label>
-                  <p className="text-lg">{new Date(viewingEntity.createdAt).toLocaleDateString('ar-EG')}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">الحالة</Label>
-                  <div className="mt-1">
-                    <Badge variant={viewingEntity.isArchived ? "destructive" : "default"}>
-                      {viewingEntity.isArchived ? 'مؤرشفة' : 'نشطة'}
-                    </Badge>
-                  </div>
-                </div>
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-name">الاسم *</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  required
+                />
               </div>
               
-              {/* Total Revenue Section */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium text-green-800">إجمالي الإيرادات</Label>
-                    <p className="text-2xl font-bold text-green-700 mt-1">
-                      {viewingEntity.totalRevenue ? viewingEntity.totalRevenue.toFixed(2) : '0.00'} ج.م
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <Label className="text-sm font-medium text-green-800">عدد الإيرادات</Label>
-                    <div className="mt-1">
-                      {viewingEntity.revenuesCount && viewingEntity.revenuesCount > 0 ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          {viewingEntity.revenuesCount}
-                        </Badge>
-                      ) : (
-                        <span className="text-green-600 font-medium">0</span>
-                      )}
-                    </div>
-                  </div>
-                  <DollarSign className="h-8 w-8 text-green-600" />
-                </div>
+              <div>
+                <Label htmlFor="edit-type">النوع *</Label>
+                <Select value={formData.type} onValueChange={(value: 'main' | 'branch' | 'workers') => setFormData({...formData, type: value, subtype: ''})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر النوع" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="main">رئيسية</SelectItem>
+                    <SelectItem value="branch">فرعية</SelectItem>
+                    <SelectItem value="workers">عاملين</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              {viewingEntity.description && (
+              
+              {formData.type === 'main' && (
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">الوصف</Label>
-                  <p className="text-lg mt-1">{viewingEntity.description}</p>
+                  <Label htmlFor="edit-subtype">النوع الفرعي *</Label>
+                  <Select value={formData.subtype} onValueChange={(value) => setFormData({...formData, subtype: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر النوع الفرعي" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mainEntitySubtypes.map(subtype => (
+                        <SelectItem key={subtype.value} value={subtype.value}>{subtype.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
-              {viewingEntity.address && (
+              
+              <div>
+                <Label htmlFor="edit-governorate">المحافظة *</Label>
+                <Select value={formData.governorate} onValueChange={(value) => setFormData({...formData, governorate: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر المحافظة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {governorates.map(gov => (
+                      <SelectItem key={gov} value={gov}>{gov}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="edit-phone">الهاتف</Label>
+                <Input
+                  id="edit-phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <Label htmlFor="edit-description">الوصف</Label>
+                <Input
+                  id="edit-description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <Label htmlFor="edit-address">العنوان</Label>
+                <Input
+                  id="edit-address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit-email">البريد الإلكتروني</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit-website">الموقع الإلكتروني</Label>
+                <Input
+                  id="edit-website"
+                  value={formData.website}
+                  onChange={(e) => setFormData({...formData, website: e.target.value})}
+                />
+              </div>
+            </div>
+            
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                إلغاء
+              </Button>
+              <Button type="submit">
+                تحديث
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Entity Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>تفاصيل الجهة</DialogTitle>
+            <DialogDescription>عرض بيانات الجهة بالتفصيل</DialogDescription>
+          </DialogHeader>
+          {viewingEntity && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="font-semibold">الاسم</Label>
+                <p>{viewingEntity.name}</p>
+              </div>
+              
+              <div>
+                <Label className="font-semibold">النوع</Label>
+                <p>{viewingEntity.type === 'main' ? 'رئيسية' : viewingEntity.type === 'branch' ? 'فرعية' : 'عاملين'}</p>
+              </div>
+              
+              {viewingEntity.type === 'main' && viewingEntity.subtype && (
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">العنوان</Label>
-                  <p className="text-lg mt-1">{viewingEntity.address}</p>
+                  <Label className="font-semibold">النوع الفرعي</Label>
+                  <p>{mainEntitySubtypes.find(st => st.value === viewingEntity.subtype)?.label || viewingEntity.subtype}</p>
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-4">
-                {viewingEntity.phone && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">الهاتف</Label>
-                    <p className="text-lg mt-1">{viewingEntity.phone}</p>
-                  </div>
-                )}
-                {viewingEntity.email && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">البريد الإلكتروني</Label>
-                    <p className="text-lg mt-1">{viewingEntity.email}</p>
-                  </div>
-                )}
-                {viewingEntity.website && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">الموقع الإلكتروني</Label>
-                    <p className="text-lg mt-1">{viewingEntity.website}</p>
-                  </div>
-                )}
+              
+              <div>
+                <Label className="font-semibold">المحافظة</Label>
+                <p>{viewingEntity.governorate}</p>
               </div>
+              
+              <div>
+                <Label className="font-semibold">الحالة</Label>
+                <p>{viewingEntity.isArchived ? 'مؤرشف' : 'نشط'}</p>
+              </div>
+              
+              <div>
+                <Label className="font-semibold">الهاتف</Label>
+                <p>{viewingEntity.phone || '-'}</p>
+              </div>
+              
+              <div>
+                <Label className="font-semibold">البريد الإلكتروني</Label>
+                <p>{viewingEntity.email || '-'}</p>
+              </div>
+              
+              <div className="md:col-span-2">
+                <Label className="font-semibold">الوصف</Label>
+                <p>{viewingEntity.description || '-'}</p>
+              </div>
+              
+              <div className="md:col-span-2">
+                <Label className="font-semibold">العنوان</Label>
+                <p>{viewingEntity.address || '-'}</p>
+              </div>
+              
+              <div className="md:col-span-2">
+                <Label className="font-semibold">الموقع الإلكتروني</Label>
+                <p>{viewingEntity.website || '-'}</p>
+              </div>
+              
+              <div>
+                <Label className="font-semibold">تاريخ الإنشاء</Label>
+                <p>{new Date(viewingEntity.createdAt).toLocaleDateString('ar-EG')}</p>
+              </div>
+              
+              <div>
+                <Label className="font-semibold">تاريخ التحديث</Label>
+                <p>{new Date(viewingEntity.updatedAt).toLocaleDateString('ar-EG')}</p>
+              </div>
+              
               {viewingEntity.archivedAt && (
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">تاريخ الأرشفة</Label>
-                  <p className="text-lg mt-1">{new Date(viewingEntity.archivedAt).toLocaleDateString('ar-EG')}</p>
+                  <Label className="font-semibold">تاريخ الأرشفة</Label>
+                  <p>{new Date(viewingEntity.archivedAt).toLocaleDateString('ar-EG')}</p>
                 </div>
               )}
+              
+              <div>
+                <Label className="font-semibold">إجمالي الإيرادات</Label>
+                <p>{formatCurrency(viewingEntity.totalRevenue || 0)}</p>
+              </div>
+              
+              <div>
+                <Label className="font-semibold">عدد الإيرادات</Label>
+                <p>{convertToArabicNumerals((viewingEntity.revenuesCount || 0).toString())}</p>
+              </div>
             </div>
           )}
-          <DialogFooter>
-            <Button
-              type="button"
-              onClick={() => setIsViewDialogOpen(false)}
-            >
+          
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
               إغلاق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Entities Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>استيراد الجهات</DialogTitle>
+            <DialogDescription>اختر ملف CSV لاستيراد الجهات</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="importFile">ملف CSV</Label>
+              <Input
+                id="importFile"
+                type="file"
+                accept=".csv"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <div className="text-sm text-gray-600">
+              <p className="font-medium">ملاحظات:</p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>يجب أن يكون الملف بصيغة CSV</li>
+                <li>يتضمن الأعمدة: name, type, governorate</li>
+                <li>الحقول الاختيارية: description, address, phone, email, website, subtype</li>
+                <li>النوع الرئيسي يتطلب حقل subtype</li>
+              </ul>
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={handleImport} disabled={!importFile}>
+              استيراد
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { formatCurrency, convertToArabicNumerals } from '@/lib/utils'
 
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
-    const { entityIds } = await request.json()
-
-    if (!entityIds || !Array.isArray(entityIds)) {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      )
-    }
-
-    // Fetch entities with the specified IDs
+    // Fetch all entities
     const entities = await db.entity.findMany({
-      where: {
-        id: {
-          in: entityIds
-        }
+      include: {
+        revenues: true
       },
       orderBy: {
         createdAt: 'desc'
@@ -31,40 +21,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create CSV content
+    // Create CSV content with Arabic headers
     const headers = [
-      'id',
-      'name', 
-      'type',
-      'governorate',
-      'description',
-      'address',
-      'phone',
-      'email',
-      'website',
-      'isArchived',
-      'archivedAt',
-      'createdAt',
-      'updatedAt'
+      'المعرف',
+      'اسم الجهة', 
+      'النوع',
+      'المحافظة',
+      'الوصف',
+      'العنوان',
+      'الهاتف',
+      'البريد الإلكتروني',
+      'الموقع الإلكتروني',
+      'الحالة',
+      'تاريخ الأرشفة',
+      'إجمالي الإيرادات',
+      'عدد الإيرادات',
+      'تاريخ الإنشاء',
+      'تاريخ التحديث'
     ]
 
-    const csvRows = entities.map(entity => [
-      entity.id,
-      entity.name,
-      entity.type,
-      entity.governorate,
-      entity.description || '',
-      entity.address || '',
-      entity.phone || '',
-      entity.email || '',
-      entity.website || '',
-      entity.isArchived,
-      entity.archivedAt || '',
-      entity.createdAt.toISOString(),
-      entity.updatedAt.toISOString()
-    ])
+    const csvRows = entities.map(entity => {
+      const totalRevenue = entity.revenues.reduce((sum, rev) => sum + rev.value, 0)
+      const revenuesCount = entity.revenues.length
+      
+      return [
+        entity.id,
+        entity.name,
+        entity.type === 'main' ? 'رئيسية' : entity.type === 'branch' ? 'فرعية' : 'عاملين',
+        entity.governorate,
+        entity.description || '',
+        entity.address || '',
+        entity.phone || '',
+        entity.email || '',
+        entity.website || '',
+        entity.isArchived ? 'مؤرشف' : 'نشط',
+        entity.archivedAt ? new Date(entity.archivedAt).toLocaleDateString('ar-EG') : '',
+        formatCurrency(totalRevenue),
+        convertToArabicNumerals(revenuesCount.toString()),
+        new Date(entity.createdAt).toLocaleDateString('ar-EG'),
+        new Date(entity.updatedAt).toLocaleDateString('ar-EG')
+      ]
+    })
 
-    // Convert to CSV string
+    // Convert to CSV string with proper UTF-8 BOM for Arabic support
+    const BOM = '\uFEFF' // Byte Order Mark for UTF-8
     const csvContent = [
       headers.join(','),
       ...csvRows.map(row => 
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     ].join('\n')
 
     // Create response with CSV file
-    const response = new NextResponse(csvContent, {
+    const response = new NextResponse(BOM + csvContent, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="entities_${new Date().toISOString().split('T')[0]}.csv"`,

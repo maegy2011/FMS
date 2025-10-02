@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Captcha } from '@/components/ui/captcha'
-import { Trash2, Edit, Plus, Search, DollarSign, Calendar, FileText, Building2, Eye, EyeOff, Download, Upload, Filter, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, Archive, ArchiveRestore, TrendingUp, TrendingDown, BarChart3, PieChart, Users, Clock, AlertCircle } from 'lucide-react'
+import { Trash2, Edit, Plus, Search, Calendar, FileText, Building2, Eye, EyeOff, Download, Upload, Filter, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, Archive, ArchiveRestore, TrendingUp, TrendingDown, BarChart3, PieChart, Users, Clock, AlertCircle } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import { formatCurrency, convertToArabicNumerals } from '@/lib/utils'
 
 interface Revenue {
   id: number
@@ -54,7 +55,7 @@ const revenueTypes = [
   { value: 'penalties', label: 'جزاءات', icon: AlertCircle, color: 'bg-red-100 text-red-800' },
   { value: 'legal_fees', label: 'اتعاب محاماة', icon: FileText, color: 'bg-purple-100 text-purple-800' },
   { value: 'computerization', label: 'ميكنة', icon: Building2, color: 'bg-green-100 text-green-800' },
-  { value: 'other', label: 'أخرى', icon: DollarSign, color: 'bg-orange-100 text-orange-800' }
+  { value: 'other', label: 'أخرى', icon: Calendar, color: 'bg-orange-100 text-orange-800' }
 ]
 
 const governorates = [
@@ -1020,7 +1021,7 @@ export default function RevenuesManagement() {
 
     try {
       // Create CSV content
-      const headers = ['الرقم التسلسلي', 'اسم الجهة', 'القيمة (ج.م)', 'تاريخ الاستحقاق', 'الفترة', 'نوع الإيراد', 'ملاحظات', 'تاريخ الإنشاء']
+      const headers = ['الرقم التسلسلي', 'اسم الجهة', 'القيمة', 'تاريخ الاستحقاق', 'الفترة', 'نوع الإيراد', 'ملاحظات', 'تاريخ الإنشاء']
       const csvContent = [
         headers.join(','),
         ...sortedRevenues.map(revenue => [
@@ -1162,7 +1163,7 @@ export default function RevenuesManagement() {
   // Get revenue type icon
   const getRevenueTypeIcon = (type: string) => {
     const revenueType = revenueTypes.find(t => t.value === type)
-    return revenueType?.icon || DollarSign
+    return revenueType?.icon || Calendar
   }
 
   // Get revenue type label
@@ -1212,7 +1213,7 @@ export default function RevenuesManagement() {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center gap-2">
-            <DollarSign className="h-6 w-6" />
+            <Calendar className="h-6 w-6" />
             إدارة الإيرادات
           </CardTitle>
           <CardDescription>
@@ -1229,7 +1230,7 @@ export default function RevenuesManagement() {
                     <p className="text-sm text-gray-600">إجمالي الإيرادات</p>
                     <p className="text-2xl font-bold">{revenues.length}</p>
                   </div>
-                  <DollarSign className="h-8 w-8 text-blue-500" />
+                  <BarChart3 className="h-8 w-8 text-blue-500" />
                 </div>
               </CardContent>
             </Card>
@@ -1283,9 +1284,9 @@ export default function RevenuesManagement() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">إجمالي القيمة</p>
-                    <p className="text-2xl font-bold text-green-600">{totalRevenue.toFixed(2)} ج.م</p>
+                    <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
                   </div>
-                  <DollarSign className="h-8 w-8 text-green-600" />
+                              <Calendar className="h-8 w-8 text-green-600" />
                 </div>
               </CardContent>
             </Card>
@@ -1295,7 +1296,7 @@ export default function RevenuesManagement() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">متوسط الإيراد</p>
-                    <p className="text-2xl font-bold text-blue-600">{averageRevenue.toFixed(2)} ج.م</p>
+                    <p className="text-2xl font-bold text-blue-600">{formatCurrency(averageRevenue)}</p>
                   </div>
                   <BarChart3 className="h-8 w-8 text-blue-600" />
                 </div>
@@ -1333,6 +1334,9 @@ export default function RevenuesManagement() {
             </Card>
           </div>
 
+          {/* Separator */}
+          <div className="border-t border-gray-200 my-6"></div>
+
           {/* Revenue by Type Statistics */}
           <Card className="mb-6">
             <CardHeader>
@@ -1351,7 +1355,7 @@ export default function RevenuesManagement() {
                     <div className="mb-2">
                       <div className="text-3xl font-bold text-primary">{item.count}</div>
                       <div className="text-sm text-gray-600 mt-1">{item.type}</div>
-                      <div className="text-lg text-green-600 font-medium mt-2">{item.total.toFixed(2)} ج.م</div>
+                      <div className="text-lg text-green-600 font-medium mt-2">{formatCurrency(item.total)}</div>
                     </div>
                   </div>
                 ))}
@@ -1459,7 +1463,7 @@ export default function RevenuesManagement() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="value">القيمة (ج.م)</Label>
+                      <Label htmlFor="value">القيمة</Label>
                       <Input
                         id="value"
                         type="number"
@@ -1627,7 +1631,7 @@ export default function RevenuesManagement() {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium">القيمة من (ج.م)</Label>
+                  <Label className="text-sm font-medium">القيمة من</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1640,7 +1644,7 @@ export default function RevenuesManagement() {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium">القيمة إلى (ج.م)</Label>
+                  <Label className="text-sm font-medium">القيمة إلى</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1790,7 +1794,7 @@ export default function RevenuesManagement() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="active" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
+            <Calendar className="h-4 w-4" />
             الإيرادات النشطة
             <Badge variant="secondary">
               {activeRevenues.length}
@@ -1862,7 +1866,7 @@ export default function RevenuesManagement() {
                     <TableHead className="text-right">الرقم</TableHead>
                     <TableHead className="text-right">الرقم التسلسلي</TableHead>
                     <TableHead className="text-right">اسم الجهة</TableHead>
-                    <TableHead className="text-right">القيمة (ج.م)</TableHead>
+                    <TableHead className="text-right">القيمة</TableHead>
                     <TableHead className="text-right">النوع</TableHead>
                     <TableHead className="text-right">الفترة</TableHead>
                     <TableHead className="text-right">تاريخ الاستحقاق</TableHead>
@@ -1905,9 +1909,9 @@ export default function RevenuesManagement() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3 text-green-600" />
+                              <Calendar className="h-3 w-3 text-green-600" />
                               <span className="font-medium text-green-600">
-                                {revenue.value.toFixed(2)} ج.م
+                                {formatCurrency(revenue.value)}
                               </span>
                             </div>
                           </TableCell>
@@ -2006,10 +2010,10 @@ export default function RevenuesManagement() {
                                 <div className="bg-green-50 border border-green-200 rounded-lg p-2 mt-2">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1">
-                                      <DollarSign className="h-3 w-3 text-green-600" />
+                                      <Calendar className="h-3 w-3 text-green-600" />
                                       <span className="text-xs font-medium text-green-800">القيمة:</span>
                                       <span className="text-xs font-bold text-green-700">
-                                        {revenue.value.toFixed(2)} ج.م
+                                        {formatCurrency(revenue.value)}
                                       </span>
                                     </div>
                                   </div>
@@ -2159,7 +2163,7 @@ export default function RevenuesManagement() {
                     <TableHead className="text-right">الرقم</TableHead>
                     <TableHead className="text-right">الرقم التسلسلي</TableHead>
                     <TableHead className="text-right">اسم الجهة</TableHead>
-                    <TableHead className="text-right">القيمة (ج.م)</TableHead>
+                    <TableHead className="text-right">القيمة</TableHead>
                     <TableHead className="text-right">النوع</TableHead>
                     <TableHead className="text-right">الفترة</TableHead>
                     <TableHead className="text-right">تاريخ الأرشفة</TableHead>
@@ -2201,9 +2205,9 @@ export default function RevenuesManagement() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3 text-green-600" />
+                              <Calendar className="h-3 w-3 text-green-600" />
                               <span className="font-medium text-green-600">
-                                {revenue.value.toFixed(2)} ج.م
+                                {formatCurrency(revenue.value)}
                               </span>
                             </div>
                           </TableCell>
@@ -2298,10 +2302,10 @@ export default function RevenuesManagement() {
                                 <div className="bg-green-50 border border-green-200 rounded-lg p-2 mt-2">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1">
-                                      <DollarSign className="h-3 w-3 text-green-600" />
+                                      <Calendar className="h-3 w-3 text-green-600" />
                                       <span className="text-xs font-medium text-green-800">القيمة:</span>
                                       <span className="text-xs font-bold text-green-700">
-                                        {revenue.value.toFixed(2)} ج.م
+                                        {formatCurrency(revenue.value)}
                                       </span>
                                     </div>
                                   </div>
@@ -2496,7 +2500,7 @@ export default function RevenuesManagement() {
               </div>
               
               <div>
-                <Label htmlFor="value">القيمة (ج.م)</Label>
+                <Label htmlFor="value">القيمة</Label>
                 <Input
                   id="value"
                   type="number"
