@@ -13,6 +13,13 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Captcha } from '@/components/ui/captcha'
 import { Trash2, Edit, Plus, Search, DollarSign, Calendar, FileText, Building2, Eye, EyeOff, Download, Upload, Filter, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, Archive, ArchiveRestore, TrendingUp, TrendingDown, BarChart3, PieChart, Users, Clock, AlertCircle } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 
 interface Revenue {
   id: number
@@ -1922,40 +1929,32 @@ export default function RevenuesManagement() {
                             {new Date(revenue.createdAt).toLocaleDateString('ar-EG')}
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleView(revenue)}
-                                className="text-blue-600 hover:text-blue-700 h-8 w-8 p-0"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(revenue)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleArchive(revenue.id, true)}
-                                className="text-orange-600 hover:text-orange-700 h-8 w-8 p-0"
-                              >
-                                <Archive className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(revenue.id)}
-                                className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => handleView(revenue)}>
+                                  <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                  <span>عرض التفاصيل</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEdit(revenue)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  <span>تعديل الإيراد</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleArchive(revenue.id, true)}>
+                                  <Archive className="h-4 w-4 mr-2 text-orange-600" />
+                                  <span>أرشفة الإيراد</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDelete(revenue.id)} className="text-red-600">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  <span>حذف الإيراد</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       )
@@ -2039,38 +2038,32 @@ export default function RevenuesManagement() {
                             </div>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleView(revenue)}
-                              className="text-blue-600 hover:text-blue-700 h-8 w-8 p-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(revenue)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleArchive(revenue.id, true)}
-                              className="text-orange-600 hover:text-orange-700 h-8 w-8 p-0"
-                            >
-                              <Archive className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(revenue.id)}
-                              className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => handleView(revenue)}>
+                                  <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                  <span>عرض التفاصيل</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEdit(revenue)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  <span>تعديل الإيراد</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleArchive(revenue.id, true)}>
+                                  <Archive className="h-4 w-4 mr-2 text-orange-600" />
+                                  <span>أرشفة الإيراد</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDelete(revenue.id)} className="text-red-600">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  <span>حذف الإيراد</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       </CardContent>
@@ -2232,32 +2225,28 @@ export default function RevenuesManagement() {
                             }
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleView(revenue)}
-                                className="text-blue-600 hover:text-blue-700 h-8 w-8 p-0"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleArchive(revenue.id, false)}
-                                className="text-green-600 hover:text-green-700 h-8 w-8 p-0"
-                              >
-                                <ArchiveRestore className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(revenue.id)}
-                                className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => handleView(revenue)}>
+                                  <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                  <span>عرض التفاصيل</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleArchive(revenue.id, false)}>
+                                  <ArchiveRestore className="h-4 w-4 mr-2 text-green-600" />
+                                  <span>إعادة تفعيل الإيراد</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDelete(revenue.id)} className="text-red-600">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  <span>حذف الإيراد</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       )
@@ -2340,30 +2329,28 @@ export default function RevenuesManagement() {
                             </div>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleView(revenue)}
-                              className="text-blue-600 hover:text-blue-700 h-8 w-8 p-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleArchive(revenue.id, false)}
-                              className="text-green-600 hover:text-green-700 h-8 w-8 p-0"
-                            >
-                              <ArchiveRestore className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(revenue.id)}
-                              className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => handleView(revenue)}>
+                                  <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                  <span>عرض التفاصيل</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleArchive(revenue.id, false)}>
+                                  <ArchiveRestore className="h-4 w-4 mr-2 text-green-600" />
+                                  <span>إعادة تفعيل الإيراد</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDelete(revenue.id)} className="text-red-600">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  <span>حذف الإيراد</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       </CardContent>
@@ -2463,6 +2450,165 @@ export default function RevenuesManagement() {
           <DialogFooter>
             <Button onClick={() => setIsViewDialogOpen(false)}>إغلاق</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Revenue Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>تعديل الإيراد</DialogTitle>
+            <DialogDescription>
+              تعديل بيانات الإيراد المحدد
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(e) => handleSubmit(e, false)}>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label htmlFor="entityName">اسم الجهة</Label>
+                <Input
+                  id="entityName"
+                  value={formData.entityName}
+                  onChange={(e) => setFormData({...formData, entityName: e.target.value})}
+                  placeholder="أدخل اسم الجهة"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="entityId">ربط بجهة موجودة (اختياري)</Label>
+                <Select
+                  value={formData.entityId}
+                  onValueChange={(value) => setFormData({...formData, entityId: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر جهة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">بدون ربط</SelectItem>
+                    {entities.map(entity => (
+                      <SelectItem key={entity.id} value={entity.id.toString()}>
+                        {entity.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="value">القيمة (ج.م)</Label>
+                <Input
+                  id="value"
+                  type="number"
+                  step="0.01"
+                  value={formData.value}
+                  onChange={(e) => setFormData({...formData, value: e.target.value})}
+                  placeholder="أدخل القيمة"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="dueDate">تاريخ الاستحقاق</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="type">نوع الإيراد</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value: 'subscriptions' | 'penalties' | 'legal_fees' | 'computerization' | 'other') => 
+                    setFormData({...formData, type: value})
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {revenueTypes.map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="year">السنة</Label>
+                <Select
+                  value={parsePeriod(formData.period).year || "none"}
+                  onValueChange={handleYearChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر السنة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- اختر السنة --</SelectItem>
+                    {years.map(year => (
+                      <SelectItem key={year.value} value={year.value}>
+                        {year.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="month">الشهر (اختياري)</Label>
+                <Select
+                  value={parsePeriod(formData.period).month || "none"}
+                  onValueChange={handleMonthChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الشهر" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- اختر الشهر --</SelectItem>
+                    {months.map(month => (
+                      <SelectItem key={month.value} value={month.value}>
+                        {month.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="col-span-2">
+                <Label htmlFor="notes">ملاحظات (اختياري)</Label>
+                <textarea
+                  id="notes"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                  placeholder="أدخل ملاحظات إضافية"
+                  rows={3}
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-between items-center mt-4 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={() => setIsAddEntityDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                إضافة جهة جديدة
+              </Button>
+              
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  إلغاء
+                </Button>
+                <Button type="submit">
+                  حفظ التغييرات
+                </Button>
+              </div>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 

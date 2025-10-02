@@ -20,8 +20,8 @@ export function AppNavigation() {
       icon: DollarSign
     },
     {
-      href: '/revenue-tracking',
-      label: 'متابعة الإيرادات',
+      href: '/monthly-revenue-tracking',
+      label: 'متابعة الإيرادات الشهرية',
       icon: BarChart3
     }
   ]

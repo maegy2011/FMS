@@ -34,6 +34,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate entity name if entityId is provided
+    if (entityId) {
+      const entity = await db.entity.findUnique({
+        where: { id: parseInt(entityId) }
+      })
+      
+      if (!entity) {
+        return NextResponse.json(
+          { error: 'Entity not found' },
+          { status: 404 }
+        )
+      }
+      
+      if (entity.name !== entityName) {
+        return NextResponse.json(
+          { error: 'Entity name does not match the selected entity' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Get the next serial number
     const lastRevenue = await db.revenue.findFirst({
       orderBy: {

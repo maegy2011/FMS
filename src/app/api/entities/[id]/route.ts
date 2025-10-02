@@ -43,11 +43,42 @@ export async function DELETE(
   try {
     const id = parseInt(params.id)
 
+    // Check if entity has associated revenues
+    const entityWithRevenues = await db.entity.findUnique({
+      where: { id },
+      include: {
+        revenues: true
+      }
+    })
+
+    if (!entityWithRevenues) {
+      return NextResponse.json(
+        { error: 'Entity not found' },
+        { status: 404 }
+      )
+    }
+
+    if (entityWithRevenues.revenues.length > 0) {
+      // Option 1: Delete associated revenues
+      await db.revenue.deleteMany({
+        where: { entityId: id }
+      })
+      
+      // Option 2: Or keep revenues but disassociate them
+      // await db.revenue.updateMany({
+      //   where: { entityId: id },
+      //   data: { entityId: null }
+      // })
+    }
+
     await db.entity.delete({
       where: { id }
     })
 
-    return NextResponse.json({ message: 'Entity deleted successfully' })
+    return NextResponse.json({ 
+      message: 'Entity and associated revenues deleted successfully',
+      deletedRevenuesCount: entityWithRevenues.revenues.length
+    })
   } catch (error) {
     console.error('Error deleting entity:', error)
     return NextResponse.json(

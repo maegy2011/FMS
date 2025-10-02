@@ -17,6 +17,7 @@ export async function PUT(
       )
     }
 
+    // Update entity archive status
     const entity = await db.entity.update({
       where: { id },
       data: {
@@ -25,7 +26,22 @@ export async function PUT(
       }
     })
 
-    return NextResponse.json(entity)
+    // Also archive/unarchive associated revenues
+    const revenuesUpdate = await db.revenue.updateMany({
+      where: { entityId: id },
+      data: {
+        isArchived: archive,
+        archivedAt: archive ? new Date() : null
+      }
+    })
+
+    return NextResponse.json({ 
+      entity,
+      updatedRevenuesCount: revenuesUpdate.count,
+      message: archive 
+        ? 'Entity and associated revenues archived successfully' 
+        : 'Entity and associated revenues unarchived successfully'
+    })
   } catch (error) {
     console.error('Error updating entity archive status:', error)
     return NextResponse.json(
