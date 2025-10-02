@@ -120,3 +120,194 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================================================
+   COMPREHENSIVE Z-INDEX FIX FOR DROPDOWNS AND DIALOGS
+   ============================================================================ */
+
+/* Define z-index hierarchy */
+:root {
+  --z-index-base: 1;
+  --z-index-dialog-overlay: 49999;
+  --z-index-dialog: 50000;
+  --z-index-dropdown: 99999;
+  --z-index-tooltip: 100000;
+  --z-index-toast: 110000;
+  --z-index-swal: 120000;
+}
+
+/* Apply z-index to all dropdown/popup components - HIGHEST PRIORITY */
+[data-radix-select-content],
+[data-radix-dropdown-menu-content],
+[data-radix-popover-content],
+[data-radix-combobox-content],
+[data-radix-calendar-content],
+[data-radix-date-picker-content],
+[data-radix-tooltip-content],
+[data-radix-toast-content] {
+  z-index: 99999 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+/* Apply z-index to dialog components */
+[data-radix-dialog-content],
+[data-radix-alert-dialog-content] {
+  z-index: 50000 !important;
+  position: relative !important;
+}
+
+[data-radix-dialog-overlay],
+[data-radix-alert-dialog-overlay] {
+  z-index: 49999 !important;
+}
+
+/* Apply z-index to SweetAlert */
+.swal2-container {
+  z-index: 120000 !important;
+}
+
+.swal2-popup {
+  z-index: 120000 !important;
+}
+
+.swal2-backdrop {
+  z-index: 119999 !important;
+}
+
+/* CRITICAL: Dropdowns inside dialogs must have the highest priority */
+[data-radix-dialog-content] [data-radix-select-content],
+[data-radix-dialog-content] [data-radix-dropdown-menu-content],
+[data-radix-dialog-content] [data-radix-popover-content],
+[data-radix-alert-dialog-content] [data-radix-select-content],
+[data-radix-alert-dialog-content] [data-radix-dropdown-menu-content],
+[data-radix-alert-dialog-content] [data-radix-popover-content] {
+  z-index: 199999 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+/* Force dropdowns to be visible when open */
+[data-radix-select-content][data-state="open"],
+[data-radix-dropdown-menu-content][data-state="open"],
+[data-radix-popover-content][data-state="open"] {
+  z-index: 99999 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+/* Force dropdowns inside dialogs to be visible when open */
+[data-radix-dialog-content] [data-radix-select-content][data-state="open"],
+[data-radix-dialog-content] [data-radix-dropdown-menu-content][data-state="open"],
+[data-radix-dialog-content] [data-radix-popover-content][data-state="open"] {
+  z-index: 199999 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+/* Portal content management */
+[data-radix-portal] {
+  z-index: auto !important;
+}
+
+[data-radix-portal] > div {
+  z-index: 99999 !important;
+}
+
+[data-radix-portal] [data-radix-select-content],
+[data-radix-portal] [data-radix-dropdown-menu-content],
+[data-radix-portal] [data-radix-popover-content] {
+  z-index: 99999 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+/* Specific shadcn/ui component classes */
+.SelectContent,
+.DropdownMenuContent,
+.PopoverContent,
+.ComboboxContent,
+.CalendarContent {
+  z-index: 99999 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+/* Dialog component classes */
+.DialogContent,
+.dialog-content,
+.ModalContent,
+.modal-content {
+  z-index: 50000 !important;
+  position: relative !important;
+}
+
+.DialogOverlay,
+.dialog-overlay,
+.ModalOverlay,
+.modal-overlay {
+  z-index: 49999 !important;
+}
+
+/* Override any conflicting styles with !important */
+* {
+  --z-index-dropdown: 99999 !important;
+  --z-index-dialog: 50000 !important;
+  --z-index-dialog-overlay: 49999 !important;
+  --z-index-swal: 120000 !important;
+}
+
+/* Additional safety rules */
+.select-content,
+.select-popover,
+.dropdown-menu,
+.popover-content {
+  z-index: 99999 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+/* Last resort - apply to every possible selector */
+[data-radix-popper-content] {
+  z-index: 99999 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+/* Ensure body doesn't interfere */
+body {
+  z-index: 1 !important;
+}
+
+/* Ensure html doesn't interfere */
+html {
+  z-index: 1 !important;
+}
+
+/* ============================================================================
+   END Z-INDEX FIX
+   ============================================================================ */

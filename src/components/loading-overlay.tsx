@@ -1,11 +1,35 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 
 export function LoadingOverlay() {
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('جاري التحميل...')
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const pathname = usePathname()
+
+  const getPageSpecificMessage = () => {
+    if (pathname === '/') {
+      return 'جاري تحميل الجهات...'
+    } else if (pathname === '/revenues') {
+      return 'جاري تحميل الإيرادات...'
+    } else if (pathname === '/monthly-revenue-tracking') {
+      return 'جاري تحميل متابعة الإيرادات...'
+    }
+    return 'جاري التحميل...'
+  }
+
+  const getProcedureMessage = () => {
+    if (pathname === '/') {
+      return 'جاري معالجة بيانات الجهات...'
+    } else if (pathname === '/revenues') {
+      return 'جاري معالجة بيانات الإيرادات...'
+    } else if (pathname === '/monthly-revenue-tracking') {
+      return 'جاري معالجة بيانات المتابعة...'
+    }
+    return 'جاري تنفيذ الإجراء...'
+  }
 
   useEffect(() => {
     // Handle initial app load
@@ -19,7 +43,7 @@ export function LoadingOverlay() {
     const handleStart = (url: string) => {
       if (url !== window.location.pathname) {
         setIsLoading(true)
-        setMessage('جاري التحميل...')
+        setMessage(getPageSpecificMessage())
       }
     }
 
@@ -33,7 +57,7 @@ export function LoadingOverlay() {
     // Handle procedure loading
     const handleProcedureStart = () => {
       setIsLoading(true)
-      setMessage('جاري تنفيذ الإجراء...')
+      setMessage(getProcedureMessage())
     }
 
     const handleProcedureEnd = () => {
@@ -82,7 +106,7 @@ export function LoadingOverlay() {
       window.removeEventListener('procedure-end', handleProcedureEnd)
       window.fetch = originalFetch
     }
-  }, [])
+  }, [pathname])
 
   // Don't show loading during initial load if it's too quick
   if (isInitialLoad && !isLoading) return null

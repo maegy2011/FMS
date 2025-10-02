@@ -58,9 +58,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, type, governorate } = body
+    const { name, type, governorate, subtype, description, address, phone, email, website } = body
 
-    if (!name || !type || !governorate) {
+    if (!name || !type || !governorate || (type === 'main' && !subtype)) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -71,7 +71,13 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         type,
-        governorate
+        governorate,
+        subtype: type === 'main' ? subtype : null,
+        description: description || null,
+        address: address || null,
+        phone: phone || null,
+        email: email || null,
+        website: website || null
       }
     })
 

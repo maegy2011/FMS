@@ -8,9 +8,9 @@ export async function PUT(
   try {
     const id = parseInt(params.id)
     const body = await request.json()
-    const { name, type, governorate } = body
+    const { name, type, governorate, subtype, description, address, phone, email, website } = body
 
-    if (!name || !type || !governorate) {
+    if (!name || !type || !governorate || (type === 'main' && !subtype)) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -22,7 +22,13 @@ export async function PUT(
       data: {
         name,
         type,
-        governorate
+        governorate,
+        subtype: type === 'main' ? subtype : null,
+        description: description || null,
+        address: address || null,
+        phone: phone || null,
+        email: email || null,
+        website: website || null
       }
     })
 
@@ -59,25 +65,29 @@ export async function DELETE(
     }
 
     if (entityWithRevenues.revenues.length > 0) {
-      // Option 1: Delete associated revenues
-      await db.revenue.deleteMany({
-        where: { entityId: id }
+      // Archive the entity instead of deleting it
+      const archivedEntity = await db.entity.update({
+        where: { id },
+        data: {
+          isArchived: true,
+          archivedAt: new Date()
+        }
       })
-      
-      // Option 2: Or keep revenues but disassociate them
-      // await db.revenue.updateMany({
-      //   where: { entityId: id },
-      //   data: { entityId: null }
-      // })
+
+      return NextResponse.json({ 
+        message: 'Entity archived successfully due to associated revenues',
+        archivedEntity,
+        revenuesCount: entityWithRevenues.revenues.length
+      })
     }
 
+    // If no revenues, delete the entity
     await db.entity.delete({
       where: { id }
     })
 
     return NextResponse.json({ 
-      message: 'Entity and associated revenues deleted successfully',
-      deletedRevenuesCount: entityWithRevenues.revenues.length
+      message: 'Entity deleted successfully'
     })
   } catch (error) {
     console.error('Error deleting entity:', error)

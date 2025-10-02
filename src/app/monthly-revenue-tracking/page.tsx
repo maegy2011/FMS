@@ -82,6 +82,12 @@ const governorates = [
   'الفيوم', 'بني سويف', 'المنيا'
 ]
 
+const statusTypes = [
+  { value: 'paid', label: 'مدفوع', icon: CheckCircle, color: 'bg-green-100 text-green-800' },
+  { value: 'late', label: 'متأخر', icon: XCircle, color: 'bg-red-100 text-red-800' },
+  { value: 'pending', label: 'قيد الانتظار', icon: Clock, color: 'bg-gray-100 text-gray-800' }
+]
+
 export default function MonthlyRevenueTrackingPage() {
   const [trackingData, setTrackingData] = useState<MonthlyTracking[]>([])
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary[]>([])
@@ -147,16 +153,16 @@ export default function MonthlyRevenueTrackingPage() {
   }, [selectedYear, selectedMonth, selectedGovernorate, selectedStatus, selectedEntities.length])
 
   const getStatusBadge = (status: string, daysOverdue: number) => {
-    switch (status) {
-      case 'paid':
-        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 ml-1" />مدفوع</Badge>
-      case 'late':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 ml-1" />متأخر {daysOverdue} يوم</Badge>
-      case 'pending':
-        return <Badge variant="secondary"><Clock className="h-3 w-3 ml-1" />قيد الانتظار</Badge>
-      default:
-        return <Badge variant="outline">غير معروف</Badge>
+    const statusType = statusTypes.find(t => t.value === status)
+    if (statusType) {
+      return (
+        <Badge className={statusType.color}>
+          <statusType.icon className="h-3 w-3 ml-1" />
+          {status === 'late' ? `${statusType.label} ${daysOverdue} يوم` : statusType.label}
+        </Badge>
+      )
     }
+    return <Badge variant="outline">غير معروف</Badge>
   }
 
   const filteredAndSortedData = trackingData
@@ -313,9 +319,14 @@ export default function MonthlyRevenueTrackingPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">الكل</SelectItem>
-                  <SelectItem value="paid">مدفوع</SelectItem>
-                  <SelectItem value="late">متأخر</SelectItem>
-                  <SelectItem value="pending">قيد الانتظار</SelectItem>
+                  {statusTypes.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      <div className="flex items-center">
+                        <status.icon className="h-4 w-4 ml-2" />
+                        {status.label}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

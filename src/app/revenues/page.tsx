@@ -135,6 +135,7 @@ export default function RevenuesManagement() {
   const [newEntityData, setNewEntityData] = useState({
     name: '',
     type: 'main' as 'main' | 'branch' | 'workers',
+    subtype: '',
     governorate: ''
   })
   
@@ -608,7 +609,7 @@ export default function RevenuesManagement() {
   const handleAddNewEntity = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!newEntityData.name || !newEntityData.type || !newEntityData.governorate) {
+    if (!newEntityData.name || !newEntityData.type || !newEntityData.governorate || (newEntityData.type === 'main' && !newEntityData.subtype)) {
       Swal.fire({
         icon: 'warning',
         title: 'تنبيه',
@@ -645,6 +646,7 @@ export default function RevenuesManagement() {
         setNewEntityData({
           name: '',
           type: 'main',
+          subtype: '',
           governorate: ''
         })
         setIsAddEntityDialogOpen(false)
@@ -1563,6 +1565,7 @@ export default function RevenuesManagement() {
               variant="outline"
               size="sm"
               onClick={handleExportCSV}
+              disabled={revenues.length === 0}
             >
               <Download className="h-4 w-4 ml-2" />
               تصدير الكل
@@ -1763,6 +1766,7 @@ export default function RevenuesManagement() {
                     size="sm"
                     onClick={handleExportCSV}
                     className="text-blue-600 hover:text-blue-700"
+                    disabled={selectedRevenues.length === 0}
                   >
                     <Download className="h-4 w-4 ml-1" />
                     تصدير المحدد
@@ -2642,7 +2646,7 @@ export default function RevenuesManagement() {
                 <Select
                   value={newEntityData.type}
                   onValueChange={(value: 'main' | 'branch' | 'workers') => 
-                    setNewEntityData({...newEntityData, type: value})
+                    setNewEntityData({...newEntityData, type: value, subtype: ''})
                   }
                 >
                   <SelectTrigger>
@@ -2657,6 +2661,27 @@ export default function RevenuesManagement() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {newEntityData.type === 'main' && (
+                <div>
+                  <Label htmlFor="entitySubtype">النوع الفرعي</Label>
+                  <Select
+                    value={newEntityData.subtype}
+                    onValueChange={(value) => setNewEntityData({...newEntityData, subtype: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر النوع الفرعي" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="diwan">الديوان</SelectItem>
+                      <SelectItem value="registry">الشهر العقاري</SelectItem>
+                      <SelectItem value="courts">المحاكم</SelectItem>
+                      <SelectItem value="prosecution">النيابة</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
               <div>
                 <Label htmlFor="governorate">المحافظة</Label>
                 <Select

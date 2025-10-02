@@ -1,8 +1,32 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import Swal from 'sweetalert2'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+// SweetAlert configuration with proper z-index
+export const showSwal = (options: any) => {
+  const defaultOptions = {
+    customClass: {
+      container: 'swal2-container',
+      popup: 'swal2-popup',
+      backdrop: 'swal2-backdrop'
+    },
+    allowOutsideClick: false,
+    allowEscapeKey: true,
+    allowEnterKey: true,
+    stopKeydownPropagation: false,
+    showClass: {
+      popup: 'swal2-show'
+    },
+    hideClass: {
+      popup: ''
+    }
+  }
+  
+  return Swal.fire({ ...defaultOptions, ...options })
 }
 
 // Format currency in Egyptian Pounds with proper formatting

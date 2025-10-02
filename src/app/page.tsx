@@ -8,12 +8,13 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { FixedSelect, FixedSelectItem } from '@/components/ui/fixed-select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Captcha } from '@/components/ui/captcha'
 import { Trash2, Edit, Plus, Search, Building2, Users, Home, Scale, FileText, Gavel, Archive, ArchiveRestore, Eye, EyeOff, Download, Upload, Filter, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, Calendar } from 'lucide-react'
-import { formatCurrency, convertToArabicNumerals } from '@/lib/utils'
+import { formatCurrency, convertToArabicNumerals, showSwal } from '@/lib/utils'
 
 interface Entity {
   id: number
@@ -35,9 +36,9 @@ interface Entity {
 }
 
 const entityTypes = [
-  { value: 'main', label: 'رئيسية', icon: Building2 },
-  { value: 'branch', label: 'فرعية', icon: Home },
-  { value: 'workers', label: 'عاملين', icon: Users }
+  { value: 'main', label: 'رئيسية', icon: Building2, color: 'bg-purple-100 text-purple-800' },
+  { value: 'branch', label: 'فرعية', icon: Home, color: 'bg-blue-100 text-blue-800' },
+  { value: 'workers', label: 'عاملين', icon: Users, color: 'bg-green-100 text-green-800' }
 ]
 
 const mainEntitySubtypes = [
@@ -125,7 +126,7 @@ export default function EntitiesManagement() {
         const data = await response.json()
         setEntities(data)
       } else {
-        Swal.fire({
+        showSwal({
           icon: 'error',
           title: 'خطأ',
           text: 'فشل في جلب البيانات',
@@ -134,7 +135,7 @@ export default function EntitiesManagement() {
         })
       }
     } catch (error) {
-      Swal.fire({
+      showSwal({
         icon: 'error',
         title: 'خطأ',
         text: 'حدث خطأ في الاتصال',
@@ -153,22 +154,28 @@ export default function EntitiesManagement() {
   
 
   // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, addNew: boolean = false) => {
     e.preventDefault()
     
     if (!formData.name || !formData.type || !formData.governorate || (formData.type === 'main' && !formData.subtype)) {
-      Swal.fire({
+      showSwal({
         icon: 'warning',
         title: 'تنبيه',
         text: 'يرجى ملء جميع الحقول المطلوبة',
         confirmButtonText: 'موافق',
-        confirmButtonColor: '#f59e0b'
+        confirmButtonColor: '#f59e0b',
+        timer: 3000,
+        timerProgressBar: true
+      }).then((result) => {
+        if (result.isConfirmed || result.dismiss === Swal.DismissReason.timer) {
+          console.log('Swal closed successfully')
+        }
       })
       return
     }
 
     // Show loading state
-    Swal.fire({
+    showSwal({
       title: 'جاري الحفظ...',
       text: 'يرجى الانتظار',
       allowOutsideClick: false,
@@ -190,7 +197,7 @@ export default function EntitiesManagement() {
       })
 
       if (response.ok) {
-        Swal.fire({
+        showSwal({
           icon: 'success',
           title: 'نجاح',
           text: editingEntity ? 'تم تحديث الجهة بنجاح' : 'تم إضافة الجهة بنجاح',
@@ -198,24 +205,53 @@ export default function EntitiesManagement() {
           confirmButtonColor: '#16a34a'
         })
         fetchEntities()
-        setIsAddDialogOpen(false)
-        setIsEditDialogOpen(false)
-        setEditingEntity(null)
-        setFormData({ name: '', type: 'main', subtype: '', governorate: '', description: '', address: '', phone: '', email: '', website: '' })
+        
+        if (addNew) {
+          // Reset form for new entry
+          setFormData({
+            name: '',
+            type: 'main',
+            subtype: '',
+            governorate: '',
+            description: '',
+            address: '',
+            phone: '',
+            email: '',
+            website: ''
+          })
+        } else {
+          // Close dialog
+          setIsAddDialogOpen(false)
+          setIsEditDialogOpen(false)
+          setEditingEntity(null)
+          setFormData({
+            name: '',
+            type: 'main',
+            subtype: '',
+            governorate: '',
+            description: '',
+            address: '',
+            phone: '',
+            email: '',
+            website: ''
+          })
+        }
       } else {
-        Swal.fire({
+        const errorData = await response.json()
+        showSwal({
           icon: 'error',
           title: 'خطأ',
-          text: 'فشل في حفظ البيانات',
+          text: errorData.error || 'فشل في حفظ البيانات',
           confirmButtonText: 'موافق',
           confirmButtonColor: '#dc2626'
         })
       }
     } catch (error) {
-      Swal.fire({
+      console.error('Save error:', error)
+      showSwal({
         icon: 'error',
         title: 'خطأ',
-        text: 'حدث خطأ في الاتصال',
+        text: error instanceof Error ? error.message : 'حدث خطأ في الاتصال',
         confirmButtonText: 'موافق',
         confirmButtonColor: '#dc2626'
       })
@@ -227,7 +263,7 @@ export default function EntitiesManagement() {
     setCaptchaReset(false)
     setCaptchaValid(false)
     
-    const { value: confirmDelete } = await Swal.fire({
+    const { value: confirmDelete } = await showSwal({
       title: 'تأكيد الحذف',
       html: `
         <div class="text-right">
@@ -294,7 +330,7 @@ export default function EntitiesManagement() {
     if (!confirmDelete) return
 
     // Show loading state
-    Swal.fire({
+    showSwal({
       title: 'جاري الحذف...',
       text: 'يرجى الانتظار',
       allowOutsideClick: false,
@@ -309,16 +345,35 @@ export default function EntitiesManagement() {
       })
 
       if (response.ok) {
-        Swal.fire({
-          icon: 'success',
-          title: 'نجاح',
-          text: 'تم حذف الجهة بنجاح',
-          confirmButtonText: 'موافق',
-          confirmButtonColor: '#16a34a'
-        })
+        const result = await response.json()
+        
+        if (result.message.includes('archived')) {
+          // Entity was archived instead of deleted
+          showSwal({
+            icon: 'warning',
+            title: 'تم الأرشفة',
+            html: `
+              <div class="text-right">
+                <p>تم أرشفة الجهة بنجاح بدلاً من حذفها لأنها مرتبطة بـ ${result.revenuesCount} إيرادات مسجلة.</p>
+                <p class="text-sm text-gray-600 mt-2">يمكن إعادة تفعيل الجهة من قائمة الأرشيف في أي وقت.</p>
+              </div>
+            `,
+            confirmButtonText: 'موافق',
+            confirmButtonColor: '#f59e0b'
+          })
+        } else {
+          // Entity was deleted successfully
+          showSwal({
+            icon: 'success',
+            title: 'نجاح',
+            text: 'تم حذف الجهة بنجاح',
+            confirmButtonText: 'موافق',
+            confirmButtonColor: '#16a34a'
+          })
+        }
         fetchEntities()
       } else {
-        Swal.fire({
+        showSwal({
           icon: 'error',
           title: 'خطأ',
           text: 'فشل في حذف الجهة',
@@ -327,10 +382,11 @@ export default function EntitiesManagement() {
         })
       }
     } catch (error) {
-      Swal.fire({
+      console.error('Delete error:', error)
+      showSwal({
         icon: 'error',
         title: 'خطأ',
-        text: 'حدث خطأ في الاتصال',
+        text: error instanceof Error ? error.message : 'حدث خطأ في الاتصال',
         confirmButtonText: 'موافق',
         confirmButtonColor: '#dc2626'
       })
@@ -365,7 +421,7 @@ export default function EntitiesManagement() {
     setCaptchaReset(false)
     setCaptchaValid(false)
     
-    const { value: confirmArchive } = await Swal.fire({
+    const { value: confirmArchive } = await showSwal({
       title: archive ? 'تأكيد الأرشفة' : 'تأكيد إعادة التفعيل',
       html: `
         <div class="text-right">
@@ -428,7 +484,7 @@ export default function EntitiesManagement() {
     if (!confirmArchive) return
 
     // Show loading state
-    Swal.fire({
+    showSwal({
       title: archive ? 'جاري الأرشفة...' : 'جاري إعادة التفعيل...',
       text: 'يرجى الانتظار',
       allowOutsideClick: false,
@@ -447,7 +503,7 @@ export default function EntitiesManagement() {
       })
 
       if (response.ok) {
-        Swal.fire({
+        showSwal({
           icon: 'success',
           title: 'نجاح',
           text: archive ? 'تم أرشفة الجهة بنجاح' : 'تم إعادة تفعيل الجهة بنجاح',
@@ -456,7 +512,7 @@ export default function EntitiesManagement() {
         })
         fetchEntities()
       } else {
-        Swal.fire({
+        showSwal({
           icon: 'error',
           title: 'خطأ',
           text: archive ? 'فشل في أرشفة الجهة' : 'فشل في إعادة تفعيل الجهة',
@@ -465,10 +521,11 @@ export default function EntitiesManagement() {
         })
       }
     } catch (error) {
-      Swal.fire({
+      console.error('Archive error:', error)
+      showSwal({
         icon: 'error',
         title: 'خطأ',
-        text: 'حدث خطأ في الاتصال',
+        text: error instanceof Error ? error.message : 'حدث خطأ في الاتصال',
         confirmButtonText: 'موافق',
         confirmButtonColor: '#dc2626'
       })
@@ -560,9 +617,74 @@ export default function EntitiesManagement() {
 
   // Handle export
   const handleExport = async () => {
+    setCaptchaReset(false)
+    setCaptchaValid(false)
+    
+    const { value: confirmExport } = await showSwal({
+      title: 'تأكيد التصدير',
+      html: `
+        <div class="text-right">
+          <p>هل أنت متأكد من تصدير بيانات الجهات؟</p>
+          <div id="captcha-container" class="mt-4"></div>
+        </div>
+      `,
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonText: 'نعم، صدر',
+      cancelButtonText: 'إلغاء',
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#6b7280',
+      reverseButtons: true,
+      didOpen: () => {
+        const container = document.getElementById('captcha-container')
+        if (container) {
+          const captchaDiv = document.createElement('div')
+          captchaDiv.id = 'captcha-wrapper'
+          container.appendChild(captchaDiv)
+          
+          // Simple captcha implementation
+          let captchaText = ''
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+          for (let i = 0; i < 6; i++) {
+            captchaText += chars.charAt(Math.floor(Math.random() * chars.length))
+          }
+          
+          captchaDiv.innerHTML = `
+            <div class="space-y-3">
+              <label class="text-sm font-medium">التحقق من الإنسان (CAPTCHA)</label>
+              <div class="flex items-center gap-2">
+                <div class="bg-gray-100 border-2 border-gray-300 rounded px-3 py-2 font-mono text-sm font-bold text-gray-700" style="letter-spacing: 2px;">
+                  ${captchaText}
+                </div>
+                <button type="button" onclick="location.reload()" class="p-1 border rounded">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                </button>
+              </div>
+              <input type="text" id="captcha-input" placeholder="أدخل النص الموضح" class="w-full px-3 py-2 border rounded" maxlength="6">
+            </div>
+          `
+          
+          // Store captcha text globally
+          window.captchaAnswer = captchaText
+        }
+      },
+      preConfirm: () => {
+        const captchaInput = document.getElementById('captcha-input') as HTMLInputElement
+        if (!captchaInput || captchaInput.value !== window.captchaAnswer) {
+          Swal.showValidationMessage('التحقق من الإنسان غير صحيح')
+          return false
+        }
+        return true
+      }
+    })
+
+    if (!confirmExport) return
+
     try {
       // Show loading state
-      Swal.fire({
+      showSwal({
         title: 'جاري التصدير...',
         text: 'يرجى الانتظار',
         allowOutsideClick: false,
@@ -583,7 +705,7 @@ export default function EntitiesManagement() {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
         
-        Swal.fire({
+        showSwal({
           icon: 'success',
           title: 'نجاح',
           text: 'تم تصدير البيانات بنجاح',
@@ -591,7 +713,7 @@ export default function EntitiesManagement() {
           confirmButtonColor: '#16a34a'
         })
       } else {
-        Swal.fire({
+        showSwal({
           icon: 'error',
           title: 'خطأ',
           text: 'فشل في تصدير البيانات',
@@ -600,7 +722,7 @@ export default function EntitiesManagement() {
         })
       }
     } catch (error) {
-      Swal.fire({
+      showSwal({
         icon: 'error',
         title: 'خطأ',
         text: 'حدث خطأ في الاتصال',
@@ -613,7 +735,7 @@ export default function EntitiesManagement() {
   // Handle import
   const handleImport = async () => {
     if (!importFile) {
-      Swal.fire({
+      showSwal({
         icon: 'warning',
         title: 'تنبيه',
         text: 'يرجى اختيار ملف للإستيراد',
@@ -623,12 +745,77 @@ export default function EntitiesManagement() {
       return
     }
 
+    setCaptchaReset(false)
+    setCaptchaValid(false)
+    
+    const { value: confirmImport } = await showSwal({
+      title: 'تأكيد الاستيراد',
+      html: `
+        <div class="text-right">
+          <p>هل أنت متأكد من استيراد الملف المحدد؟ سيتم إضافة البيانات إلى النظام.</p>
+          <div id="captcha-container" class="mt-4"></div>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'نعم، استورد',
+      cancelButtonText: 'إلغاء',
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#6b7280',
+      reverseButtons: true,
+      didOpen: () => {
+        const container = document.getElementById('captcha-container')
+        if (container) {
+          const captchaDiv = document.createElement('div')
+          captchaDiv.id = 'captcha-wrapper'
+          container.appendChild(captchaDiv)
+          
+          // Simple captcha implementation
+          let captchaText = ''
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+          for (let i = 0; i < 6; i++) {
+            captchaText += chars.charAt(Math.floor(Math.random() * chars.length))
+          }
+          
+          captchaDiv.innerHTML = `
+            <div class="space-y-3">
+              <label class="text-sm font-medium">التحقق من الإنسان (CAPTCHA)</label>
+              <div class="flex items-center gap-2">
+                <div class="bg-gray-100 border-2 border-gray-300 rounded px-3 py-2 font-mono text-sm font-bold text-gray-700" style="letter-spacing: 2px;">
+                  ${captchaText}
+                </div>
+                <button type="button" onclick="location.reload()" class="p-1 border rounded">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                </button>
+              </div>
+              <input type="text" id="captcha-input" placeholder="أدخل النص الموضح" class="w-full px-3 py-2 border rounded" maxlength="6">
+            </div>
+          `
+          
+          // Store captcha text globally
+          window.captchaAnswer = captchaText
+        }
+      },
+      preConfirm: () => {
+        const captchaInput = document.getElementById('captcha-input') as HTMLInputElement
+        if (!captchaInput || captchaInput.value !== window.captchaAnswer) {
+          Swal.showValidationMessage('التحقق من الإنسان غير صحيح')
+          return false
+        }
+        return true
+      }
+    })
+
+    if (!confirmImport) return
+
     const formData = new FormData()
     formData.append('file', importFile)
 
     try {
       // Show loading state
-      Swal.fire({
+      showSwal({
         title: 'جاري الاستيراد...',
         text: 'يرجى الانتظار',
         allowOutsideClick: false,
@@ -643,7 +830,7 @@ export default function EntitiesManagement() {
       })
 
       if (response.ok) {
-        Swal.fire({
+        showSwal({
           icon: 'success',
           title: 'نجاح',
           text: 'تم استيراد البيانات بنجاح',
@@ -653,7 +840,7 @@ export default function EntitiesManagement() {
         fetchEntities()
         setImportFile(null)
       } else {
-        Swal.fire({
+        showSwal({
           icon: 'error',
           title: 'خطأ',
           text: 'فشل في استيراد البيانات',
@@ -662,7 +849,7 @@ export default function EntitiesManagement() {
         })
       }
     } catch (error) {
-      Swal.fire({
+      showSwal({
         icon: 'error',
         title: 'خطأ',
         text: 'حدث خطأ في الاتصال',
@@ -681,35 +868,48 @@ export default function EntitiesManagement() {
   const workersEntities = activeEntities.filter(e => e.type === 'workers')
 
   return (
-    <div className="container mx-auto p-4 space-y-6" dir="rtl">
+    <div className="container mx-auto p-6 space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">إدارة الجهات</h1>
-          <p className="text-gray-600 mt-1">إدارة الجهات الرئيسية والفرعية والعاملين</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setIsImportDialogOpen(true)} variant="outline">
-            <Upload className="h-4 w-4 ml-2" />
-            استيراد
-          </Button>
-          <Button onClick={handleExport} variant="outline">
-            <Download className="h-4 w-4 ml-2" />
-            تصدير
-          </Button>
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 ml-2" />
-            إضافة جهة
-          </Button>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+            <Building2 className="h-6 w-6 text-purple-600" />
+            إدارة الجهات
+          </CardTitle>
+          <CardDescription>
+            إدارة الجهات الرئيسية والفرعية والعاملين
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {/* Action Buttons */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <Button onClick={() => setIsImportDialogOpen(true)} variant="outline">
+                <Upload className="h-4 w-4 ml-2" />
+                استيراد
+              </Button>
+              <Button onClick={handleExport} variant="outline" disabled={entities.length === 0}>
+                <Download className="h-4 w-4 ml-2" />
+                تصدير
+              </Button>
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة جهة
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">إجمالي الجهات</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Building2 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{convertToArabicNumerals(entities.length.toString())}</div>
@@ -722,7 +922,7 @@ export default function EntitiesManagement() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">الإيرادات الإجمالية</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
@@ -735,7 +935,7 @@ export default function EntitiesManagement() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">الجهات الرئيسية</CardTitle>
-            <Scale className="h-4 w-4 text-muted-foreground" />
+            <Scale className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{convertToArabicNumerals(mainEntities.length.toString())}</div>
@@ -748,12 +948,25 @@ export default function EntitiesManagement() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">الجهات الفرعية</CardTitle>
-            <Home className="h-4 w-4 text-muted-foreground" />
+            <Home className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{convertToArabicNumerals(branchEntities.length.toString())}</div>
             <p className="text-xs text-muted-foreground">
-              {convertToArabicNumerals(workersEntities.length.toString())} جهة عاملين
+              {convertToArabicNumerals(branchEntities.reduce((sum, e) => sum + (e.revenuesCount || 0), 0).toString())} إيرادة
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">الجهات العاملين</CardTitle>
+            <Users className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{convertToArabicNumerals(workersEntities.length.toString())}</div>
+            <p className="text-xs text-muted-foreground">
+              {convertToArabicNumerals(workersEntities.reduce((sum, e) => sum + (e.revenuesCount || 0), 0).toString())} إيرادة
             </p>
           </CardContent>
         </Card>
@@ -794,9 +1007,14 @@ export default function EntitiesManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">الكل</SelectItem>
-                    <SelectItem value="main">رئيسية</SelectItem>
-                    <SelectItem value="branch">فرعية</SelectItem>
-                    <SelectItem value="workers">عاملين</SelectItem>
+                    {entityTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        <div className="flex items-center">
+                          <type.icon className="h-4 w-4 ml-2" />
+                          {type.label}
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1002,9 +1220,17 @@ export default function EntitiesManagement() {
                         <TableRow key={entity.id}>
                           <TableCell className="font-medium">{entity.name}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">
-                              {entity.type === 'main' ? 'رئيسية' : entity.type === 'branch' ? 'فرعية' : 'عاملين'}
-                            </Badge>
+                            {(() => {
+                              const entityType = entityTypes.find(t => t.value === entity.type)
+                              return entityType ? (
+                                <Badge className={entityType.color}>
+                                  <entityType.icon className="h-3 w-3 ml-1" />
+                                  {entityType.label}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">{entity.type}</Badge>
+                              )
+                            })()}
                           </TableCell>
                           <TableCell>
                             {entity.type === 'main' && entity.subtype ? (
@@ -1098,9 +1324,17 @@ export default function EntitiesManagement() {
                         <TableRow key={entity.id}>
                           <TableCell className="font-medium">{entity.name}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">
-                              {entity.type === 'main' ? 'رئيسية' : entity.type === 'branch' ? 'فرعية' : 'عاملين'}
-                            </Badge>
+                            {(() => {
+                              const entityType = entityTypes.find(t => t.value === entity.type)
+                              return entityType ? (
+                                <Badge className={entityType.color}>
+                                  <entityType.icon className="h-3 w-3 ml-1" />
+                                  {entityType.label}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">{entity.type}</Badge>
+                              )
+                            })()}
                           </TableCell>
                           <TableCell>
                             {entity.type === 'main' && entity.subtype ? (
@@ -1185,46 +1419,51 @@ export default function EntitiesManagement() {
               
               <div>
                 <Label htmlFor="type">النوع *</Label>
-                <Select value={formData.type} onValueChange={(value: 'main' | 'branch' | 'workers') => setFormData({...formData, type: value, subtype: ''})}>
+                <FixedSelect value={formData.type} onValueChange={(value: 'main' | 'branch' | 'workers') => setFormData({...formData, type: value, subtype: ''})}>
                   <SelectTrigger>
                     <SelectValue placeholder="اختر النوع" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="main">رئيسية</SelectItem>
-                    <SelectItem value="branch">فرعية</SelectItem>
-                    <SelectItem value="workers">عاملين</SelectItem>
+                    {entityTypes.map((type) => (
+                      <FixedSelectItem key={type.value} value={type.value}>
+                        <div className="flex items-center">
+                          <type.icon className="h-4 w-4 ml-2" />
+                          {type.label}
+                        </div>
+                      </FixedSelectItem>
+                    ))}
                   </SelectContent>
-                </Select>
+                </FixedSelect>
               </div>
               
               {formData.type === 'main' && (
                 <div>
                   <Label htmlFor="subtype">النوع الفرعي *</Label>
-                  <Select value={formData.subtype} onValueChange={(value) => setFormData({...formData, subtype: value})}>
+                  <FixedSelect value={formData.subtype} onValueChange={(value) => setFormData({...formData, subtype: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="اختر النوع الفرعي" />
                     </SelectTrigger>
                     <SelectContent>
                       {mainEntitySubtypes.map(subtype => (
-                        <SelectItem key={subtype.value} value={subtype.value}>{subtype.label}</SelectItem>
+                        <FixedSelectItem key={subtype.value} value={subtype.value}>{subtype.label}</FixedSelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
+                  </FixedSelect>
                 </div>
               )}
               
               <div>
                 <Label htmlFor="governorate">المحافظة *</Label>
-                <Select value={formData.governorate} onValueChange={(value) => setFormData({...formData, governorate: value})}>
+                <FixedSelect value={formData.governorate} onValueChange={(value) => setFormData({...formData, governorate: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="اختر المحافظة" />
                   </SelectTrigger>
                   <SelectContent>
                     {governorates.map(gov => (
-                      <SelectItem key={gov} value={gov}>{gov}</SelectItem>
+                      <FixedSelectItem key={gov} value={gov}>{gov}</FixedSelectItem>
                     ))}
                   </SelectContent>
-                </Select>
+                </FixedSelect>
               </div>
               
               <div>
@@ -1278,6 +1517,12 @@ export default function EntitiesManagement() {
               <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 إلغاء
               </Button>
+              <Button type="button" variant="outline" onClick={(e) => {
+                e.preventDefault()
+                handleSubmit(e, true)
+              }}>
+                حفظ وإضافة جديد
+              </Button>
               <Button type="submit">
                 حفظ
               </Button>
@@ -1307,46 +1552,51 @@ export default function EntitiesManagement() {
               
               <div>
                 <Label htmlFor="edit-type">النوع *</Label>
-                <Select value={formData.type} onValueChange={(value: 'main' | 'branch' | 'workers') => setFormData({...formData, type: value, subtype: ''})}>
+                <FixedSelect value={formData.type} onValueChange={(value: 'main' | 'branch' | 'workers') => setFormData({...formData, type: value, subtype: ''})}>
                   <SelectTrigger>
                     <SelectValue placeholder="اختر النوع" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="main">رئيسية</SelectItem>
-                    <SelectItem value="branch">فرعية</SelectItem>
-                    <SelectItem value="workers">عاملين</SelectItem>
+                    {entityTypes.map((type) => (
+                      <FixedSelectItem key={type.value} value={type.value}>
+                        <div className="flex items-center">
+                          <type.icon className="h-4 w-4 ml-2" />
+                          {type.label}
+                        </div>
+                      </FixedSelectItem>
+                    ))}
                   </SelectContent>
-                </Select>
+                </FixedSelect>
               </div>
               
               {formData.type === 'main' && (
                 <div>
                   <Label htmlFor="edit-subtype">النوع الفرعي *</Label>
-                  <Select value={formData.subtype} onValueChange={(value) => setFormData({...formData, subtype: value})}>
+                  <FixedSelect value={formData.subtype} onValueChange={(value) => setFormData({...formData, subtype: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="اختر النوع الفرعي" />
                     </SelectTrigger>
                     <SelectContent>
                       {mainEntitySubtypes.map(subtype => (
-                        <SelectItem key={subtype.value} value={subtype.value}>{subtype.label}</SelectItem>
+                        <FixedSelectItem key={subtype.value} value={subtype.value}>{subtype.label}</FixedSelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
+                  </FixedSelect>
                 </div>
               )}
               
               <div>
                 <Label htmlFor="edit-governorate">المحافظة *</Label>
-                <Select value={formData.governorate} onValueChange={(value) => setFormData({...formData, governorate: value})}>
+                <FixedSelect value={formData.governorate} onValueChange={(value) => setFormData({...formData, governorate: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="اختر المحافظة" />
                   </SelectTrigger>
                   <SelectContent>
                     {governorates.map(gov => (
-                      <SelectItem key={gov} value={gov}>{gov}</SelectItem>
+                      <FixedSelectItem key={gov} value={gov}>{gov}</FixedSelectItem>
                     ))}
                   </SelectContent>
-                </Select>
+                </FixedSelect>
               </div>
               
               <div>
@@ -1424,7 +1674,19 @@ export default function EntitiesManagement() {
               
               <div>
                 <Label className="font-semibold">النوع</Label>
-                <p>{viewingEntity.type === 'main' ? 'رئيسية' : viewingEntity.type === 'branch' ? 'فرعية' : 'عاملين'}</p>
+                <p>
+                  {(() => {
+                    const entityType = entityTypes.find(t => t.value === viewingEntity.type)
+                    return entityType ? (
+                      <Badge className={entityType.color}>
+                        <entityType.icon className="h-3 w-3 ml-1" />
+                        {entityType.label}
+                      </Badge>
+                    ) : (
+                      viewingEntity.type
+                    )
+                  })()}
+                </p>
               </div>
               
               {viewingEntity.type === 'main' && viewingEntity.subtype && (
